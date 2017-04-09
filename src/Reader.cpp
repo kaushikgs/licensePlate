@@ -349,7 +349,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = makeMatFrmRLE(mserRLEs[readNo], mserBoxes[readNo]);
-            imwrite(string("debugFiles/read/candidate_") + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
+            // imwrite(string("debugFiles/read/candidate_") + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
             // printMat1(candidateMat);
             candidateMat.convertTo(candidateMat, CV_32FC1);
             // printMat2(candidateMat);
@@ -376,7 +376,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
             else
                 labelCode = ptr - begin;
             // char label = 'A'; //imdisplay2(Mat(numPlateImg, mserBoxes[batchNo * batchSize + i]), batchMats[i]);
-            imwrite(string("result/") + to_string(labelCode) + "/" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+            // imwrite(string("result/") + to_string(labelCode) + "/" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
 
             // if(label != ',')
             //     selectedCandidates.push_back(Candidate(mserBoxes[batchNo * batchSize + i], label));
@@ -396,7 +396,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
         rectangle(numPlateImg, c.boundBox, color, 2);
         putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, 2, color, 2);
     }
-    imwrite(string("debugFiles/read/numPlate_") + to_string(rand()%255) + ".jpg", numPlateImg);
+    // imwrite(string("debugFiles/read/numPlate_") + to_string(rand()%255) + ".jpg", numPlateImg);
     
     return numPlateStr;
 }

@@ -1,0 +1,5 @@
+CXX=g++
+CFLAGS=-I/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/extrema -I/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/imageutls -I/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/LL -I/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/optionGM -I/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/utls -I/usr/local/include -I/usr/local/include/opencv2 -I/usr/local/cuda/include -I/home/kaushik/caffe/include 
+LIBS=-L/usr/local/lib -L/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/extrema -L/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/LL -L/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/utls -L/home/kaushik/numberPlate/src/mser/MSER/extrema-edu/optionGM -L/usr/local/cuda/lib -L/home/kaushik/caffe/build/lib
+all:
+	        $(CXX) -std=c++11 -g -o findNumPlate main.cpp Detector.cpp Reader.cpp mser.cpp Convnet.cpp $(CFLAGS) $(LIBS) -lcaffe -lglog -lopencv_core -lopencv_highgui -lopencv_imgproc -lExtrema -lLL -lutls -lOptionGM -lpng -ljpeg -lz -lrt -lm -lpthread -lboost_system -lboost_filesystem

@@ -55,7 +55,7 @@ char imdisplay(Mat dispImg, string windowName = "Display"){
 int main(int argc, char **argv){
     if (argc != 3) {
         std::cerr << "Usage: " << argv[0]
-                  << " <image path>" << std::endl;
+                  << " <image path> <config.txt>" << std::endl;
         return 1;
     }
     chrono::steady_clock::time_point start_t = chrono::steady_clock::now();
@@ -66,6 +66,7 @@ int main(int argc, char **argv){
     system("rm debugFiles/detect/*");   //DEBUG
     system("rm debugFiles/read/*"); //DEBUG
     system("rm -r result/*");   //DEBUG
+    system("rm -r debugFiles/mats/*");   //DEBUG
 
     Detector detector(config.detectModelPath, config.detectWeightsPath, config.detectMeanPath, config.detectRegionWidth, config.detectRegionHeight);
     Reader reader(config.readModelPath, config.readWeightsPath, config.readMeanPath, config.readRegionWidth, config.readRegionHeight);
