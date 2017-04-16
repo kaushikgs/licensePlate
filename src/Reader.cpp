@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <sys/stat.h>
+#include <cmath>
 #include "mser.h"
 #include "Convnet.h"
 #include "Reader.h"
@@ -106,29 +107,29 @@ void Reader::setMean(const string& meanPath) {
     // cout << "-----------------------------------" << endl;
 }
 
-vector<RLERegion> importRLEVector(string tempRLEPath){
-    vector<RLERegion> rle_vector;
-    ifstream rleFile(tempRLEPath);
+// vector<RLERegion> importRLEVector(string tempRLEPath){
+//     vector<RLERegion> rle_vector;
+//     ifstream rleFile(tempRLEPath);
 
-    for(int k = 0; k<2; k++){
-        int numRegns;
-        rleFile >> numRegns;
-        for(int i=0; i < numRegns; i++)
-        { 
-            int regnLines;
-            rleFile >> regnLines;
-            RLERegion newRLE;
-            for (int j=0; j < regnLines; j++){
-                RLEItem newLine;
-                rleFile >> newLine.line >> newLine.col1 >> newLine.col2;
-                newRLE.rle.push_back(newLine);
-            }
-            rle_vector.push_back(newRLE);
-        }
-    }
-    rleFile.close();
-    return rle_vector;
-}
+//     for(int k = 0; k<2; k++){
+//         int numRegns;
+//         rleFile >> numRegns;
+//         for(int i=0; i < numRegns; i++)
+//         { 
+//             int regnLines;
+//             rleFile >> regnLines;
+//             RLERegion newRLE;
+//             for (int j=0; j < regnLines; j++){
+//                 RLEItem newLine;
+//                 rleFile >> newLine.line >> newLine.col1 >> newLine.col2;
+//                 newRLE.rle.push_back(newLine);
+//             }
+//             rle_vector.push_back(newRLE);
+//         }
+//     }
+//     rleFile.close();
+//     return rle_vector;
+// }
 
 void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float thresh)
 {
@@ -140,7 +141,7 @@ void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float
         return;
     }
 
-    // Sort the bounding boxes by the bottom - right y - coordinate of the bounding box
+    // Sort the bounding boxes by the area of the bounding box
     std::multimap<int, size_t> idxs;
     for (size_t i = 0; i < size; ++i)
     {
@@ -232,6 +233,87 @@ Mat Reader::makeMatFrmRLE(RLERegion &region, Rect &boundBox){
     return outImg;
 }
 
+float getModeWidth(vector<Candidate> &selectedCandidates, int imgWidth){
+    // float avgWidth;
+    // int wsum = 0;
+    // for(Candidate c : selectedCandidates){
+    //     wsum = wsum + c.boundBox.width;
+    // }
+    // avgWidth = (float) wsum / selectedCandidates.size();
+    // return avgWidth;
+
+    for(int window = 5; window < imgWidth/4; window++){
+        vector<int> histogram( ceil(imgWidth / (float) window), 0);
+        for(Candidate c : selectedCandidates){
+            int binNo = floor(c.boundBox.width / window);
+            histogram[binNo] = histogram[binNo] + 1;
+        }
+        auto maxIter = max_element(histogram.begin(), histogram.end());
+        int maxNo = *maxIter;
+        int sum=0;
+        if((maxNo / (float) selectedCandidates.size()) > 0.5){
+            int maxBinNo = maxIter - histogram.begin();
+            for(Candidate c : selectedCandidates){
+                int binNo = floor(c.boundBox.width / window);
+                if(binNo == maxBinNo){
+                    sum = sum + c.boundBox.width;
+                }
+            }
+            return (float) sum / maxNo;
+        }
+    }
+
+    return -1;
+}
+
+bool areaCompare(Candidate *a, Candidate *b){
+    return (a->boundBox.area() > b->boundBox.area());
+}
+
+void filterCandidates(vector<Candidate> &candidates, vector<Candidate> &filtered, int imgWidth){
+    float modeWidth = getModeWidth(candidates, imgWidth);
+    if (modeWidth == -1){
+        return;
+    }
+
+    // for(Candidate c : candidates){
+    //     if(c.boundBox.width < (1.5 * modeWidth))
+    //         filtered.push_back(c);
+    // }
+
+    vector<Candidate*> all, chosen, notchosen;
+    for(int i=0; i<candidates.size(); i++){
+        all.push_back(&candidates[i]);
+    }
+
+    sort(all.begin(), all.end(), areaCompare);
+
+    for(int i=0; i<all.size(); i++){
+        Rect small = all[i]->boundBox;
+        bool add = true;
+        for(auto iter = chosen.begin(); iter != chosen.end(); iter++){
+            Rect big = (*iter)->boundBox;
+            if((big & small) == small){
+                if(abs(big.width - modeWidth) > abs(small.width - modeWidth)){  //small is better
+                    chosen.erase(iter);
+                }
+                else{
+                    add = false;
+                    break;
+                }
+            }
+        }
+        if(add){
+            chosen.push_back(all[i]);
+        }
+    }
+
+    for(Candidate *c : chosen){
+        if (c->boundBox.width < (2*modeWidth))
+            filtered.push_back(*c);
+    }
+}
+
 string makeNumPlateStr(Mat &img, vector<Candidate> &selectedCandidates){
     // sort(selectedCandidates.begin(), selectedCandidates.end()); //TODO: this will have NLogN object copies. Use pointers instead.
     // string numPlateStr = "";
@@ -242,18 +324,8 @@ string makeNumPlateStr(Mat &img, vector<Candidate> &selectedCandidates){
     //     lastChar = iter->label;
     // }
 
-    float avgWidth;
-    int wsum = 0;
-    for(Candidate c : selectedCandidates){
-        wsum = wsum + c.boundBox.width;
-    }
-    avgWidth = (float) wsum / selectedCandidates.size();
-
     vector<Candidate> filtered;
-    for(Candidate c : selectedCandidates){
-        if(c.boundBox.width < (1.5 * avgWidth))
-            filtered.push_back(c);
-    }
+    filterCandidates(selectedCandidates, filtered, img.cols);
 
     vector<Candidate> top, bot;
     int mid = img.rows / 2;
