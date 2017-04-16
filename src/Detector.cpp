@@ -104,7 +104,6 @@ void Detector::genRegions(Mat &image, vector<RotatedRect> &numPlateBoxes){
     vector<ellipseParameters> mserEllipses;
     genMSEREllipses(image, mserEllipses);
     filterNConvertEllipses(image, mserEllipses, numPlateBoxes);
-    //TODO: yellowchannel
 }
 
 void remapRects(float scale, vector<RotatedRect> &allRects, vector<RotatedRect> &scaledRects){
@@ -121,10 +120,22 @@ Mat cropRegion(Mat &image, RotatedRect &rect){
     while(angle > 90){
         angle = angle-180;
     }
-    while(angle <-90){
+    while(angle <=-90){
         angle = angle+180;
     }
 
+    if(angle > 45){
+        int temp = rect.size.width;
+        rect.size.width = rect.size.height;
+        rect.size.height = temp;
+        angle = angle - 90;
+    }
+    else if(angle < -45){
+        int temp = rect.size.width;
+        rect.size.width = rect.size.height;
+        rect.size.height = temp;
+        angle = angle + 90;
+    }
     
     Size rect_size = rect.size;
     Rect bound = rect.boundingRect();
