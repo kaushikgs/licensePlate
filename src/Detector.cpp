@@ -116,25 +116,24 @@ void remapRects(float scale, vector<RotatedRect> &allRects, vector<RotatedRect> 
 
 Mat cropRegion(Mat &image, RotatedRect &rect){
     Mat M, rotated, cropped;
-    float angle = rect.angle;
-    while(angle > 90){
-        angle = angle-180;
+    while(rect.angle > 90){
+        rect.angle = rect.angle-180;
     }
-    while(angle <=-90){
-        angle = angle+180;
+    while(rect.angle <=-90){
+        rect.angle = rect.angle+180;
     }
 
-    if(angle > 45){
+    if(rect.angle > 45){
         int temp = rect.size.width;
         rect.size.width = rect.size.height;
         rect.size.height = temp;
-        angle = angle - 90;
+        rect.angle = rect.angle - 90;
     }
-    else if(angle < -45){
+    else if(rect.angle < -45){
         int temp = rect.size.width;
         rect.size.width = rect.size.height;
         rect.size.height = temp;
-        angle = angle + 90;
+        rect.angle = rect.angle + 90;
     }
     
     Size rect_size = rect.size;
@@ -153,7 +152,7 @@ Mat cropRegion(Mat &image, RotatedRect &rect){
     copyMakeBorder( boundMat, boundMat, pad, pad, pad, pad, BORDER_CONSTANT, Scalar(0,0,0) );
     
     Point center(rect.center.x - bound.x + pad, rect.center.y - bound.y + pad);
-    M = getRotationMatrix2D(center, angle, 1.0);
+    M = getRotationMatrix2D(center, rect.angle, 1.0);
     warpAffine(boundMat, rotated, M, boundMat.size(), INTER_CUBIC);
     getRectSubPix(rotated, rect_size, center, cropped);
     return cropped;
