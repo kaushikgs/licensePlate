@@ -11,6 +11,7 @@ class Detector{
     cv::Size regionSize;
     Convnet convnet;
     cv::Mat mean;
+    float threshold;
 
     void setMean(const std::string &meanPath);
     void genMSEREllipses(cv::Mat &image, std::vector<ellipseParameters> &mserEllipses);
@@ -20,7 +21,7 @@ class Detector{
     cv::Mat preprocessMat(cv::Mat &input);
 
 public:
-    Detector(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight);
+    Detector(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight, float threshold);
     void detectNumPlates(cv::Mat &image, std::vector<cv::Mat> &numPlateImgs, std::vector<cv::RotatedRect> &numPlateBoxes);
 };
 

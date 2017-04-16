@@ -11,13 +11,15 @@ class Reader{
 	Convnet convnet;
     cv::Mat mean;
     int numClasses;
+    int numDetections;  //DEBUG
+    float threshold;
 
     void setMean(const std::string &meanPath);
     cv::Mat preprocessMat(cv::Mat &input);
     cv::Mat makeMatFrmRLE(extrema::RLERegion &region, cv::Rect &boundBox);
 
 public:
-    Reader(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight);
+    Reader(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight, float threshold);
     std::string readNumPlate(cv::Mat &numPlateImg);
 };
 

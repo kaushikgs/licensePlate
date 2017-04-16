@@ -20,13 +20,14 @@ struct Configuration{
     string detectModelPath, detectWeightsPath, detectMeanPath;
     string readModelPath, readWeightsPath, readMeanPath;
     int detectRegionWidth, detectRegionHeight, readRegionWidth, readRegionHeight;
+    float detectThreshold, readThreshold;
 
     Configuration(string configPath){
         ifstream configFile(configPath);
         configFile >> detectModelPath >> detectWeightsPath >> detectMeanPath;
-        configFile >> detectRegionWidth >> detectRegionHeight;
+        configFile >> detectRegionWidth >> detectRegionHeight >> detectThreshold;
         configFile >> readModelPath >> readWeightsPath >> readMeanPath;
-        configFile >> readRegionWidth >> readRegionHeight;
+        configFile >> readRegionWidth >> readRegionHeight >> readThreshold;
         configFile.close();
     }
 };
@@ -65,11 +66,11 @@ int main(int argc, char **argv){
 
     system("rm debugFiles/detect/*");   //DEBUG
     system("rm debugFiles/read/*"); //DEBUG
-    system("rm -r result/*");   //DEBUG
-    system("rm -r debugFiles/mats/*");   //DEBUG
+    system("rm -r debugFiles/result/*");   //DEBUG
+    // system("rm -r debugFiles/mats/*");   //DEBUG
 
-    Detector detector(config.detectModelPath, config.detectWeightsPath, config.detectMeanPath, config.detectRegionWidth, config.detectRegionHeight);
-    Reader reader(config.readModelPath, config.readWeightsPath, config.readMeanPath, config.readRegionWidth, config.readRegionHeight);
+    Detector detector(config.detectModelPath, config.detectWeightsPath, config.detectMeanPath, config.detectRegionWidth, config.detectRegionHeight, config.detectThreshold);
+    Reader reader(config.readModelPath, config.readWeightsPath, config.readMeanPath, config.readRegionWidth, config.readRegionHeight, config.readThreshold);
     Mat image = imread(imagePath);
 
     chrono::steady_clock::time_point init_t = chrono::steady_clock::now();

@@ -14,9 +14,10 @@ using namespace cv;
 using namespace caffe;
 using namespace extrema;
 
-Detector::Detector(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight)
+Detector::Detector(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight, float threshold)
  : batchSize(64), regionSize(regionWidth, regionHeight), convnet(modelPath, weightsPath)
 {
+    this->threshold = threshold;
     setMean(meanPath);
 }
 
@@ -82,7 +83,7 @@ bool Detector::liesInside(Mat &img, RotatedRect &rect){
 void Detector::filterNConvertEllipses(Mat &image, vector<ellipseParameters> &mserEllipses, vector<RotatedRect> &mserBoxes){
     // int minArea = 500;
     // int maxArea = 1000000;
-    int minArea = (image.rows * image.cols) / 1000;
+    int minArea = (image.rows * image.cols) / 10000;
     int maxArea = image.rows * image.cols;
 
 
@@ -217,7 +218,6 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         }
 
         vector<float> batchScores = convnet.scoreBatch(batchMats);
-        float threshold = 0.8;
         for(int i=0; i < curBatchSize; i++){
             if(batchScores[2*i] > threshold){
                 // numPlateImgs.push_back(batchMats[i]);

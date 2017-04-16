@@ -45,7 +45,7 @@ void computeMSERRLEs(Mat &inputImage, vector<RLERegion> &mserRLEs, vector<Rect> 
     extrema::RLEExtrema result;
     result = extrema::getRLEExtrema(p, im);
     
-    mserRLEs.insert(mserRLEs.end(), result.MSERmin.begin(), result.MSERmin.end());
+    // mserRLEs.insert(mserRLEs.end(), result.MSERmin.begin(), result.MSERmin.end());
     mserRLEs.insert(mserRLEs.end(), result.MSERplus.begin(), result.MSERplus.end());
     convRleToRect(mserRLEs, mserRects);
     return;

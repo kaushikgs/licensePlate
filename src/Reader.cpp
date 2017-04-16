@@ -57,10 +57,11 @@ struct Candidate{
     }
 };
 
-Reader::Reader(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight)
- : batchSize(64), regionSize(regionWidth, regionHeight), convnet(modelPath, weightsPath)
+Reader::Reader(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight, float threshold)
+ : numDetections(0), batchSize(64), regionSize(regionWidth, regionHeight), convnet(modelPath, weightsPath)
 {
 	this->meanPath = meanPath;
+    this->threshold = threshold;
     setMean(meanPath);
     numClasses = 37;
 }
@@ -87,9 +88,13 @@ void Reader::setMean(const string& meanPath) {
     // }
 
     /* Merge the separate channels into a single image. */
-    // cv::Mat mean;
-    cv::merge(channels, mean);
-    // mean_ = mean;
+    cv::Mat mean_;
+    cv::merge(channels, mean_);
+    mean = mean_;
+
+    // cv::Scalar channel_mean = cv::mean(mean_);
+    // Size meanSize(40, 110);
+    // mean = cv::Mat(meanSize, mean_.type(), channel_mean);
 
     // cout << "Printing the mean -----------------" << endl;
     // for(int i=0; i<regionSize.height; i++){
@@ -176,31 +181,31 @@ void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float
 }
 
 void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
-    // extrema::ExtremaParams p;
-    // p.preprocess = 0;
-    // p.max_area = 0.1;
-    // p.min_size = 30;
-    // p.min_margin = 10;
-    // p.relative = 0;
-    // p.verbose = 0;
-    // p.debug = 0;
-    // double scale_factor = 1.0;
-    // scale_factor = scale_factor * 2; /* compensate covariance matrix */
+    extrema::ExtremaParams p;
+    p.preprocess = 0;
+    p.max_area = 0.1;
+    p.min_size = 30;
+    p.min_margin = 10;
+    p.relative = 0;
+    p.verbose = 0;
+    p.debug = 0;
+    double scale_factor = 1.0;
+    scale_factor = scale_factor * 2; /* compensate covariance matrix */
 
-    // computeMSERRLEs(image, mserRLEs, mserBoxes, p, scale_factor);
-    string tempImgPath = "temp/img.jpg";
-    string tempRLEPath = "temp/rle.txt";
-    imwrite(tempImgPath, image);
-    // imdisplay3(image);
-
-    string cmd = "/home/kaushik/arun/code/MSER/Untitled\\ Folder/extrema-edu/extrema/extrema-bin";
-    cmd = cmd + " -per 0.1 -i " + tempImgPath + " -o " + tempRLEPath + " -t 0";
-    system(cmd.c_str());
+    // string tempImgPath = "temp/img.jpg";
+    // string tempRLEPath = "temp/rle.txt";
+    // imwrite(tempImgPath, image);
     
-    vector<RLERegion> allRles = importRLEVector(tempRLEPath);
+    // string cmd = "/home/kaushik/arun/code/MSER/Untitled\\ Folder/extrema-edu/extrema/extrema-bin";
+    // cmd = cmd + " -per 0.1 -ms 10 -i " + tempImgPath + " -o " + tempRLEPath + " -t 0";
+    // system(cmd.c_str());
+    
+    // vector<RLERegion> allRles = importRLEVector(tempRLEPath);
+    vector<RLERegion> allRles;
     vector<Rect> allRects;
-    convRleToRect(allRles, allRects);
-
+    // convRleToRect(allRles, allRects);
+    computeMSERRLEs(image, allRles, allRects, p, scale_factor);
+  
     vector<int> fewIdxs;
     nms(allRects, fewIdxs, 0.5);
     for(int i : fewIdxs){
@@ -321,23 +326,36 @@ void printMat2(Mat &mat){
     cout << "-----------------------------------" << endl;
 }
 
+void printProbs(vector<float> &probs){
+    for(int i=0; i<10; i++){
+        cout << i << ": " << probs[i] << endl;
+    }
+    int cint = 10;
+    for(char c = 'A'; c <= 'Z'; c++){
+        cout << c << ": " << probs[cint] << endl;
+        cint++;
+    }
+    cout << "None" << ": " << probs[cint] << endl;
+}
+
 string Reader::readNumPlate(Mat &numPlateImg){
 	vector<RLERegion> mserRLEs;
     vector<Rect> mserBoxes;
     genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
     
-    mkdir("result", 0777);
+    mkdir("debugFiles/result", 0777);
     for(int i=0; i<37; i++){
-        mkdir((string("result/") + to_string(i) + "/").c_str(), 0777);
+        mkdir((string("debugFiles/result/") + to_string(i) + "/").c_str(), 0777);
     }
     // for(int i = 0; i < 26; i++){
-    //     mkdir((string("result/") + to_string('A' + i) + "/").c_str(), 0777);
+    //     mkdir((string("debugFiles/result/") + to_string('A' + i) + "/").c_str(), 0777);
     // }
-    // mkdir((string("result/") + "," + "/").c_str(), 0777);
+    // mkdir((string("debugFiles/result/") + "," + "/").c_str(), 0777);
 
     int numBatches = ceil( ((float) mserRLEs.size()) / batchSize);
     vector<Mat> batchMats;
     vector<Candidate> selectedCandidates;
+    // cout << "Num candidates " << mserRLEs.size() << " Num batches " << numBatches << endl;
     
     for(int batchNo = 0, readNo = 0, writeNo = 0; batchNo < numBatches; batchNo++){
         int curBatchSize;
@@ -349,16 +367,24 @@ string Reader::readNumPlate(Mat &numPlateImg){
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = makeMatFrmRLE(mserRLEs[readNo], mserBoxes[readNo]);
-            // imwrite(string("debugFiles/read/candidate_") + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
-            // printMat1(candidateMat);
+            imwrite(string("debugFiles/read/candidate_") + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
+            // if(i == 7){
+            //     candidateMat = imread(string("debugFiles/read/candidate_") + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", IMREAD_GRAYSCALE);
+            // }
             candidateMat.convertTo(candidateMat, CV_32FC1);
-            // printMat2(candidateMat);
+            // if(i == 10){
+            //     // printMat2(candidateMat);
+            // }
             subtract(candidateMat, mean, candidateMat);
+            // if(i == 10){
+            //     // printMat2(candidateMat);
+            //     printMat2(mean);
+            // }
             // cout << "after mean subtraction type " << candidateMat.type() << endl;
-            // printMat2(candidateMat);
             // cout << candidateMat.channels() << " channels vs. " << mean.channels() << endl;
             // cout << candidateMat.size() << " size vs. " << mean.size() << endl;
             // cout << candidateMat.type() << " type vs. " << mean.type() << endl;
+
             batchMats.push_back(candidateMat);
             readNo++;
         }
@@ -370,13 +396,20 @@ string Reader::readNumPlate(Mat &numPlateImg){
             
             auto ptr = max_element(begin, end);
             int labelCode;
-            float threshold = 0.8;
             if(*ptr < threshold)
                 labelCode = numClasses-1;
             else
                 labelCode = ptr - begin;
-            // char label = 'A'; //imdisplay2(Mat(numPlateImg, mserBoxes[batchNo * batchSize + i]), batchMats[i]);
-            // imwrite(string("result/") + to_string(labelCode) + "/" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+            imwrite(string("debugFiles/result/") + to_string(labelCode) + "/" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+
+            // if(i == 7){
+            //     vector<float> probs(begin, end);
+            //     printProbs(probs);
+            //     cout << "labelcode is " << labelCode << " and score is " << *ptr << endl;
+            //     // imwrite("debugFiles/batchMat.jpg", batchMats[i]);
+            //     // imwrite("debugFiles/candidateMat.jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));
+            // }
+
 
             // if(label != ',')
             //     selectedCandidates.push_back(Candidate(mserBoxes[batchNo * batchSize + i], label));
@@ -396,8 +429,9 @@ string Reader::readNumPlate(Mat &numPlateImg){
         rectangle(numPlateImg, c.boundBox, color, 2);
         putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, 2, color, 2);
     }
-    // imwrite(string("debugFiles/read/numPlate_") + to_string(rand()%255) + ".jpg", numPlateImg);
+    imwrite(string("debugFiles/read/numPlate_") + to_string(numDetections) + ".jpg", numPlateImg);
     
+    numDetections++;
     return numPlateStr;
 }
 
