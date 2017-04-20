@@ -215,7 +215,7 @@ void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxe
     computeMSERRLEs(image, allRles, allRects, p, scale_factor);
   
     vector<int> fewIdxs;
-    nms(allRects, fewIdxs, 0.5);
+    nms(allRects, fewIdxs, 0.6);
     for(int i : fewIdxs){
         mserRLEs.push_back(allRles[i]);
         mserBoxes.push_back(allRects[i]);
@@ -250,9 +250,9 @@ float getModeWidth(vector<Candidate> &selectedCandidates, int imgWidth){
     // return avgWidth;
 
     for(int window = 5; window < imgWidth/4; window++){
-        vector<int> histogram( ceil(imgWidth / (float) window), 0);
+        vector<int> histogram( imgWidth/window + 1, 0);
         for(Candidate c : selectedCandidates){
-            int binNo = floor(c.boundBox.width / window);
+            int binNo = c.boundBox.width / window;
             histogram[binNo] = histogram[binNo] + 1;
         }
         auto maxIter = max_element(histogram.begin(), histogram.end());
@@ -507,9 +507,10 @@ string Reader::readNumPlate(Mat &numPlateImg){
     string numPlateStr = makeNumPlateStr(numPlateImg, selectedCandidates);
 
     for(Candidate c : selectedCandidates){
+        int thickness = ceil(numPlateImg.cols / 1000.0);
         Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
-        rectangle(numPlateImg, c.boundBox, color, 2);
-        putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, 2, color, 2);
+        rectangle(numPlateImg, c.boundBox, color, thickness);
+        putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
     }
     imwrite(string("debugFiles/read/numPlate_") + to_string(numDetections) + ".jpg", numPlateImg);
     

@@ -236,8 +236,15 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
             if(batchScores[2*i] > threshold){
                 Mat numPlateImg = cropRegion(imageCopy, mserBoxes[writeNo]);
                 // imwrite(string("debugFiles/detect/numPlateImg_") + to_string(writeNo) + ".jpg", numPlateImg);   //DEBUG
+                // RotatedRect fullRect = mserBoxes[writeNo];
+                // RotatedRect halfRect;
+                // halfRect.center = fullRect.center;
+                // halfRect.size = Size(fullRect.size.width/2, fullRect.size.height/2);
+                // halfRect.angle = fullRect.angle;
+                // Mat numPlateImg = cropRegion(imageCopy, halfRect);
                 numPlateImgs.push_back( numPlateImg);
-                numPlateBoxes.push_back( mserBoxes[writeNo]);
+                // numPlateBoxes.push_back( halfRect);
+                numPlateBoxes.push_back(mserBoxes[writeNo]);
             }
             writeNo++;
         }
