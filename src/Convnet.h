@@ -15,7 +15,8 @@ class Convnet{
     int num_channels_;
 
 public:
-	Convnet(std::string modelPath, std::string weightsPath, int maxBatchSize = 64);
+	Convnet();
+    Convnet(std::string modelPath, std::string weightsPath, int maxBatchSize = 64);
 	std::vector<float> scoreBatch(const std::vector<cv::Mat> imgs);
 
 private:

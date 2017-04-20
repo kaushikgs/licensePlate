@@ -58,12 +58,19 @@ struct Candidate{
     }
 };
 
-Reader::Reader(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight, float threshold)
- : numDetections(0), batchSize(64), regionSize(regionWidth, regionHeight), convnet(modelPath, weightsPath)
-{
-	this->meanPath = meanPath;
-    this->threshold = threshold;
+Reader::Reader(string configPath) {
+	string modelPath, weightsPath, meanPath;
+    int regionWidth, regionHeight;
+    ifstream configFile(configPath);
+    configFile >> modelPath >> weightsPath >> meanPath;
+    configFile >> regionWidth >> regionHeight >> batchSize >> threshold;
+    configFile.close();
+
+    regionSize = Size(regionWidth, regionHeight);
+    convnet = Convnet(modelPath, weightsPath);
     setMean(meanPath);
+
+    numDetections = 0;  //DEBUG
     numClasses = 37;
 }
 
@@ -291,7 +298,7 @@ void filterCandidates(vector<Candidate> &candidates, vector<Candidate> &filtered
     for(int i=0; i<all.size(); i++){
         Rect small = all[i]->boundBox;
         bool add = true;
-        for(auto iter = chosen.begin(); iter != chosen.end(); iter++){
+        for(auto iter = chosen.begin(); iter!=chosen.end();){
             Rect big = (*iter)->boundBox;
             if((big & small) == small){
                 if(abs(big.width - modeWidth) > abs(small.width - modeWidth)){  //small is better
@@ -301,6 +308,9 @@ void filterCandidates(vector<Candidate> &candidates, vector<Candidate> &filtered
                     add = false;
                     break;
                 }
+            }
+            else{
+                iter++;
             }
         }
         if(add){
@@ -497,7 +507,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
     string numPlateStr = makeNumPlateStr(numPlateImg, selectedCandidates);
 
     for(Candidate c : selectedCandidates){
-        Scalar color(rand()%255, rand()%255, rand()%255);
+        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
         rectangle(numPlateImg, c.boundBox, color, 2);
         putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, 2, color, 2);
     }

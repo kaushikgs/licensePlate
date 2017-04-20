@@ -7,6 +7,10 @@ using namespace std;
 using namespace cv;
 using namespace caffe;
 
+Convnet::Convnet(){
+    
+}
+
 Convnet::Convnet(string modelPath, std::string weightsPath, int maxBatchSize){
 #ifdef CPU_ONLY
     Caffe::set_mode(Caffe::CPU);

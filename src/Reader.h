@@ -5,7 +5,6 @@
 #include "Convnet.h"
 
 class Reader{
-	std::string meanPath;
     int batchSize;
     cv::Size regionSize;
 	Convnet convnet;
@@ -17,9 +16,9 @@ class Reader{
     void setMean(const std::string &meanPath);
     cv::Mat preprocessMat(cv::Mat &input);
     cv::Mat makeMatFrmRLE(extrema::RLERegion &region, cv::Rect &boundBox);
-
+    
 public:
-    Reader(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight, float threshold);
+    Reader(string configPath);
     std::string readNumPlate(cv::Mat &numPlateImg);
 };
 

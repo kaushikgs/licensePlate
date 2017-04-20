@@ -16,36 +16,18 @@
 using namespace std;
 using namespace cv;
 
-struct Configuration{
-    string detectModelPath, detectWeightsPath, detectMeanPath;
-    string readModelPath, readWeightsPath, readMeanPath;
-    int detectRegionWidth, detectRegionHeight, readRegionWidth, readRegionHeight;
-    float detectThreshold, readThreshold;
-
-    Configuration(string configPath){
-        ifstream configFile(configPath);
-        configFile >> detectModelPath >> detectWeightsPath >> detectMeanPath;
-        configFile >> detectRegionWidth >> detectRegionHeight >> detectThreshold;
-        configFile >> readModelPath >> readWeightsPath >> readMeanPath;
-        configFile >> readRegionWidth >> readRegionHeight >> readThreshold;
-        configFile.close();
-    }
-};
-
 void drawResult(Mat &img, RotatedRect &box, string str){
     Scalar color(rand()%255, rand()%255, rand()%255);
     Point2f corners[4];
     box.points(corners);
+    int thickness = ceil(img.cols/1000.0);
     for(int i=0; i<4; i++){
-        line(img, corners[i], corners[(i+1)%4], color, 5);
+        line(img, corners[i], corners[(i+1)%4], color, thickness);
     }
-    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, 4, color, 4);
+    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
 }
 
 char imdisplay(Mat dispImg, string windowName = "Display"){
-    Size oldSize = dispImg.size();
-    Size newSize(oldSize.width/3, oldSize.height/3);
-    resize(dispImg, dispImg, newSize);
     namedWindow(windowName, WINDOW_AUTOSIZE);
     imshow(windowName, dispImg);
     char k = waitKey(0);
@@ -53,24 +35,41 @@ char imdisplay(Mat dispImg, string windowName = "Display"){
     return k;
 }
 
+void displayResult(Mat &image, string windowName){
+    Mat dispImage;
+    int maxDispSize = 1000;
+    float scale = -1;
+    if(image.rows > maxDispSize || image.cols> maxDispSize){
+        if(image.rows > image.cols)
+            scale = (float) maxDispSize/image.rows;
+        else
+            scale = (float) maxDispSize/image.cols;
+        Size dispSize(round(scale*image.cols), round(scale*image.rows));
+        resize(image, dispImage, dispSize);
+    }
+    else{
+        dispImage = image;
+    }
+    imdisplay(dispImage, windowName);
+}
+
 int main(int argc, char **argv){
-    if (argc != 3) {
+    if (argc != 2) {
         std::cerr << "Usage: " << argv[0]
-                  << " <image path> <config.txt>" << std::endl;
+                  << " <image path>" << std::endl;
         return 1;
     }
     chrono::steady_clock::time_point start_t = chrono::steady_clock::now();
     srand(1);
     string imagePath = argv[1];
-    Configuration config(argv[2]);
 
     system("rm debugFiles/detect/*");   //DEBUG
     system("rm debugFiles/read/*"); //DEBUG
     system("rm -r debugFiles/result/*");   //DEBUG
     // system("rm -r debugFiles/mats/*");   //DEBUG
 
-    Detector detector(config.detectModelPath, config.detectWeightsPath, config.detectMeanPath, config.detectRegionWidth, config.detectRegionHeight, config.detectThreshold);
-    Reader reader(config.readModelPath, config.readWeightsPath, config.readMeanPath, config.readRegionWidth, config.readRegionHeight, config.readThreshold);
+    Detector detector("detectConfig.txt");
+    Reader reader("readConfig.txt");
     Mat image = imread(imagePath);
 
     chrono::steady_clock::time_point init_t = chrono::steady_clock::now();
@@ -93,10 +92,10 @@ int main(int argc, char **argv){
     }
     chrono::steady_clock::time_point drawn_t = chrono::steady_clock::now();
 
-    imdisplay(image, imagePath);
-    // imwrite("result.jpg", image);
+    displayResult(image, imagePath);
+    imwrite("debugFiles/result/result.jpg", image);
 
-    cout << numPlateBoxes.size() << " number plates found in " << imagePath << endl;
+    cout << numPlateImgs.size() << " number plates found in " << imagePath << endl;
     cout << "Initialisation: " << chrono::duration_cast<std::chrono::milliseconds> (init_t - start_t).count() << " ms" << endl;
     cout << "Detection: " << chrono::duration_cast<std::chrono::milliseconds> (detected_t - init_t).count() << " ms" << endl;
     cout << "Recognition: " << chrono::duration_cast<std::chrono::milliseconds> (read_t - detected_t).count() << " ms" << endl;

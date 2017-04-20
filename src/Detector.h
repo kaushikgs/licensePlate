@@ -6,7 +6,6 @@
 #include "Convnet.h"
 
 class Detector{
-    std::string meanPath;
     int batchSize;
     cv::Size regionSize;
     Convnet convnet;
@@ -21,7 +20,7 @@ class Detector{
     cv::Mat preprocessMat(cv::Mat &input);
 
 public:
-    Detector(std::string modelPath, std::string weightsPath, std::string meanPath, int regionWidth, int regionHeight, float threshold);
+    Detector(string configPath);
     void detectNumPlates(cv::Mat &image, std::vector<cv::Mat> &numPlateImgs, std::vector<cv::RotatedRect> &numPlateBoxes);
 };
 

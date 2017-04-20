@@ -14,10 +14,16 @@ using namespace cv;
 using namespace caffe;
 using namespace extrema;
 
-Detector::Detector(string modelPath, string weightsPath, string meanPath, int regionWidth, int regionHeight, float threshold)
- : batchSize(64), regionSize(regionWidth, regionHeight), convnet(modelPath, weightsPath)
-{
-    this->threshold = threshold;
+Detector::Detector(string configPath) {
+    string modelPath, weightsPath, meanPath;
+    int regionWidth, regionHeight;
+    ifstream configFile(configPath);
+    configFile >> modelPath >> weightsPath >> meanPath;
+    configFile >> regionWidth >> regionHeight >> batchSize >> threshold;
+    configFile.close();
+
+    regionSize = Size(regionWidth, regionHeight);
+    convnet = Convnet(modelPath, weightsPath);
     setMean(meanPath);
 }
 
@@ -136,7 +142,6 @@ Mat cropRegion(Mat &image, RotatedRect &rect){
         rect.angle = rect.angle + 90;
     }
     
-    Size rect_size = rect.size;
     Rect bound = rect.boundingRect();
 
     int pad = 0;
@@ -146,15 +151,14 @@ Mat cropRegion(Mat &image, RotatedRect &rect){
     else{
         pad = bound.height;
     }
-    Size targetSize(3*pad, 3*pad);
-
+    
     Mat boundMat(image, bound);
     copyMakeBorder( boundMat, boundMat, pad, pad, pad, pad, BORDER_CONSTANT, Scalar(0,0,0) );
     
     Point center(rect.center.x - bound.x + pad, rect.center.y - bound.y + pad);
     M = getRotationMatrix2D(center, rect.angle, 1.0);
     warpAffine(boundMat, rotated, M, boundMat.size(), INTER_CUBIC);
-    getRectSubPix(rotated, rect_size, center, cropped);
+    getRectSubPix(rotated, rect.size, center, cropped);
     return cropped;
 }
 
@@ -230,11 +234,10 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         vector<float> batchScores = convnet.scoreBatch(batchMats);
         for(int i=0; i < curBatchSize; i++){
             if(batchScores[2*i] > threshold){
-                // numPlateImgs.push_back(batchMats[i]);
                 Mat numPlateImg = cropRegion(imageCopy, mserBoxes[writeNo]);
                 // imwrite(string("debugFiles/detect/numPlateImg_") + to_string(writeNo) + ".jpg", numPlateImg);   //DEBUG
                 numPlateImgs.push_back( numPlateImg);
-                numPlateBoxes.push_back(mserBoxes[writeNo]);
+                numPlateBoxes.push_back( mserBoxes[writeNo]);
             }
             writeNo++;
         }
