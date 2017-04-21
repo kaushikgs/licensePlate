@@ -74,7 +74,29 @@ void Detector::genMSEREllipses(Mat &image, vector<ellipseParameters> &mserEllips
     computeMSEREllipses(yellowChannel, mserEllipses, p, scale_factor);
 }
 
-bool Detector::liesInside(Mat &img, RotatedRect &rect){
+void adjustRect(RotatedRect &rect){
+    while(rect.angle > 90){
+        rect.angle = rect.angle-180;
+    }
+    while(rect.angle <=-90){
+        rect.angle = rect.angle+180;
+    }
+
+    if(rect.angle > 45){
+        int temp = rect.size.width;
+        rect.size.width = rect.size.height;
+        rect.size.height = temp;
+        rect.angle = rect.angle - 90;
+    }
+    else if(rect.angle < -45){
+        int temp = rect.size.width;
+        rect.size.width = rect.size.height;
+        rect.size.height = temp;
+        rect.angle = rect.angle + 90;
+    }
+}
+
+bool liesInside(Mat &img, RotatedRect &rect){
     Rect bound = rect.boundingRect();
 
     if(bound.x < 0 || bound.y < 0){
@@ -86,12 +108,48 @@ bool Detector::liesInside(Mat &img, RotatedRect &rect){
     return true;
 }
 
+//return true if either right half or left half or both lie inside
+bool partialLiesInside(Mat &img, RotatedRect &rect){
+    if(liesInside(img, rect)){
+        return true;
+    }
+
+    RotatedRect quatrRect = rect;
+    quatrRect.size.width = rect.size.width/2;
+    quatrRect.size.height = rect.size.height/2;
+    if(!liesInside(img, quatrRect)){
+        return false;
+    }
+
+    double angleRadians = ((double) rect.angle * CV_PI) /180;
+    float costheta = cos(angleRadians);
+    float sintheta = sin(angleRadians);
+    Size halfSize(rect.size.width/2, rect.size.height);
+
+    Point rightCenter;
+    rightCenter.x = rect.center.x + (rect.size.width * costheta)/4;
+    rightCenter.y = rect.center.y + (rect.size.width * sintheta)/4;
+    RotatedRect rightHalf(rightCenter, halfSize, rect.angle);
+    if(liesInside(img, rightHalf)){
+        return true;
+    }
+
+    Point leftCenter;
+    leftCenter.x = rect.center.x - (rect.size.width * costheta)/4;
+    leftCenter.y = rect.center.y - (rect.size.width * sintheta)/4;
+    RotatedRect leftHalf(leftCenter, halfSize, rect.angle);
+    if(liesInside(img, leftHalf)){
+        return true;
+    }
+
+    return false;
+}
+
 void Detector::filterNConvertEllipses(Mat &image, vector<ellipseParameters> &mserEllipses, vector<RotatedRect> &mserBoxes){
     // int minArea = 500;
     // int maxArea = 1000000;
     int minArea = (image.rows * image.cols) / 10000;
     int maxArea = image.rows * image.cols;
-
 
     for(unsigned int i=0; i<mserEllipses.size(); i++){
         ellipseParameters tempEll = mserEllipses[i];
@@ -99,7 +157,8 @@ void Detector::filterNConvertEllipses(Mat &image, vector<ellipseParameters> &mse
         if(ellArea > minArea && ellArea < maxArea && /*(tempEll.angle < 25 || tempEll.angle > 155) && tempEll.axes.height > 0 && (float)tempEll.axes.width/(float)tempEll.axes.height > 1.5 &&*/ (float)tempEll.axes.width/(float)tempEll.axes.height < 10 )//Potential Number Plates
         {
             RotatedRect mserRect(tempEll.center, Size(tempEll.axes.width*4, tempEll.axes.height*4), tempEll.angle); //double the region
-            if (liesInside(image, mserRect)){
+            adjustRect(mserRect);
+            if (partialLiesInside(image, mserRect)){
                 mserBoxes.push_back(mserRect);
             }
         }
@@ -120,46 +179,71 @@ void remapRects(float scale, vector<RotatedRect> &allRects, vector<RotatedRect> 
     }
 }
 
-Mat cropRegion(Mat &image, RotatedRect &rect){
-    Mat M, rotated, cropped;
-    while(rect.angle > 90){
-        rect.angle = rect.angle-180;
+//pads, rotates and returns new center
+Point rotateMat(Mat &image, Point &center, float angle, Mat &rotated){
+    int pad = 0;
+    if(image.cols > image.rows){
+        pad = image.cols;
     }
-    while(rect.angle <=-90){
-        rect.angle = rect.angle+180;
+    else{
+        pad = image.rows;
     }
+    
+    Mat boundMat;
+    copyMakeBorder( image, boundMat, pad, pad, pad, pad, BORDER_CONSTANT, Scalar(0,0,0) );
+    Point newCenter(center.x + pad, center.y + pad);
+    Mat M = getRotationMatrix2D(newCenter, angle, 1.0);
+    warpAffine(boundMat, rotated, M, boundMat.size(), INTER_CUBIC);
+    return newCenter;
+}
 
-    if(rect.angle > 45){
-        int temp = rect.size.width;
-        rect.size.width = rect.size.height;
-        rect.size.height = temp;
-        rect.angle = rect.angle - 90;
-    }
-    else if(rect.angle < -45){
-        int temp = rect.size.width;
-        rect.size.width = rect.size.height;
-        rect.size.height = temp;
-        rect.angle = rect.angle + 90;
-    }
+//if the entire region is present, return it
+//else, one of the halves should be present - then make other half as mirror image
+//of the known half, concatenate and return
+Mat cropRegion(Mat &image, RotatedRect &rect){
+    Mat rotated, cropped;
     
     Rect bound = rect.boundingRect();
 
-    int pad = 0;
-    if(bound.width > bound.height){
-        pad = bound.width;
+    Point center, newCenter;
+    if(liesInside(image, rect)){
+        Mat boundMat(image, bound);
+        center = Point(rect.center.x - bound.x, rect.center.y - bound.y);
+        newCenter = rotateMat(boundMat, center, rect.angle, rotated);
+        getRectSubPix(rotated, rect.size, newCenter, cropped);
+        return cropped;
     }
-    else{
-        pad = bound.height;
+
+    else{   //one of the halves should be in the image
+        double angleRadians = ((double) rect.angle * CV_PI) /180;
+        float costheta = cos(angleRadians);
+        float sintheta = sin(angleRadians);
+        
+        Point leftCenter, rightCenter;
+        rightCenter.x = rect.center.x + (rect.size.width * costheta)/4;
+        rightCenter.y = rect.center.y + (rect.size.width * sintheta)/4;
+        leftCenter.x = rect.center.x - (rect.size.width * costheta)/4;
+        leftCenter.y = rect.center.y - (rect.size.width * sintheta)/4;
+
+        Size halfSize(rect.size.width/2, rect.size.height);
+        RotatedRect rightHalf(rightCenter, halfSize, rect.angle);
+        RotatedRect leftHalf(leftCenter, halfSize, rect.angle);
+
+        Mat rightMat, leftMat;
+        if(liesInside(image, rightHalf)){
+            rightMat = cropRegion(image, rightHalf);
+            flip(rightMat, leftMat, 1);
+        }
+        else if(liesInside(image, leftHalf)){
+            leftMat = cropRegion(image, leftHalf);
+            flip(leftMat, rightMat, 1);
+        }
+        else{
+            cout << "MSER box without eithr half filtered" << endl;
+        }
+        hconcat(leftMat, rightMat, cropped);
+        return cropped;
     }
-    
-    Mat boundMat(image, bound);
-    copyMakeBorder( boundMat, boundMat, pad, pad, pad, pad, BORDER_CONSTANT, Scalar(0,0,0) );
-    
-    Point center(rect.center.x - bound.x + pad, rect.center.y - bound.y + pad);
-    M = getRotationMatrix2D(center, rect.angle, 1.0);
-    warpAffine(boundMat, rotated, M, boundMat.size(), INTER_CUBIC);
-    getRectSubPix(rotated, rect.size, center, cropped);
-    return cropped;
 }
 
 void writeMat(Mat &mat){
@@ -193,6 +277,8 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
 
     int maxSize = 750;
     float scale = -1;
+    Mat imageCopy = inputImage.clone();
+    
     if(inputImage.rows > maxSize || inputImage.cols> maxSize){
         if(inputImage.rows > inputImage.cols)
             scale = (float) maxSize/inputImage.rows;
@@ -210,8 +296,6 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
     else{
         mserBoxes.insert(mserBoxes.end(), smalBoxes.begin(), smalBoxes.end());
     }
-
-    Mat imageCopy = inputImage.clone();
     
     int numBatches = ceil( ((float) mserBoxes.size()) / batchSize);
     vector<Mat> batchMats;
@@ -234,17 +318,20 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         vector<float> batchScores = convnet.scoreBatch(batchMats);
         for(int i=0; i < curBatchSize; i++){
             if(batchScores[2*i] > threshold){
-                Mat numPlateImg = cropRegion(imageCopy, mserBoxes[writeNo]);
-                // imwrite(string("debugFiles/detect/numPlateImg_") + to_string(writeNo) + ".jpg", numPlateImg);   //DEBUG
-                // RotatedRect fullRect = mserBoxes[writeNo];
-                // RotatedRect halfRect;
-                // halfRect.center = fullRect.center;
-                // halfRect.size = Size(fullRect.size.width/2, fullRect.size.height/2);
-                // halfRect.angle = fullRect.angle;
-                // Mat numPlateImg = cropRegion(imageCopy, halfRect);
-                numPlateImgs.push_back( numPlateImg);
-                // numPlateBoxes.push_back( halfRect);
-                numPlateBoxes.push_back(mserBoxes[writeNo]);
+                RotatedRect fullRect = mserBoxes[writeNo];
+                if(liesInside(imageCopy, fullRect)){
+                    Mat numPlateImg = cropRegion(imageCopy, fullRect);
+                    numPlateImgs.push_back( numPlateImg);
+                    numPlateBoxes.push_back( fullRect);
+                }
+                else{
+                    RotatedRect halfRect = fullRect;
+                    halfRect.size.width = fullRect.size.width/2;
+                    halfRect.size.height = fullRect.size.height/2;
+                    Mat numPlateImg = cropRegion(imageCopy, halfRect);
+                    numPlateImgs.push_back( numPlateImg);
+                    numPlateBoxes.push_back( halfRect);
+                }
             }
             writeNo++;
         }

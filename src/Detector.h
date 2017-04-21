@@ -14,7 +14,6 @@ class Detector{
 
     void setMean(const std::string &meanPath);
     void genMSEREllipses(cv::Mat &image, std::vector<ellipseParameters> &mserEllipses);
-    bool liesInside(cv::Mat &img, cv::RotatedRect &rect);
     void filterNConvertEllipses(cv::Mat &image, std::vector<ellipseParameters> &mserEllipses, std::vector<cv::RotatedRect> &mserBoxes);
     void genRegions(cv::Mat &image, std::vector<cv::RotatedRect> &candidateRegions);
     cv::Mat preprocessMat(cv::Mat &input);
