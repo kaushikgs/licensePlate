@@ -138,6 +138,20 @@ void Reader::setMean(const string& meanPath) {
 //     return rle_vector;
 // }
 
+void filterMSERs(vector<RLERegion> &allRles, vector<Rect> &allRects){
+    auto iterRle = allRles.begin();
+    for(auto iterRect = allRects.begin(); iterRect != allRects.end(); ){
+        if(iterRect->width > 2*(iterRect->height)){
+            iterRect = allRects.erase(iterRect);
+            iterRle = allRles.erase(iterRle);
+        }
+        else{
+            iterRect++;
+            iterRle++;
+        }
+    }
+}
+
 void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float thresh)
 {
     resIdxs.clear();
@@ -213,6 +227,8 @@ void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxe
     vector<Rect> allRects;
     // convRleToRect(allRles, allRects);
     computeMSERRLEs(image, allRles, allRects, p, scale_factor);
+
+    filterMSERs(allRles, allRects);
   
     vector<int> fewIdxs;
     nms(allRects, fewIdxs, 0.6);
@@ -421,7 +437,14 @@ void printProbs(vector<float> &probs){
 }
 
 string Reader::readNumPlate(Mat &numPlateImg){
-	vector<RLERegion> mserRLEs;
+    int maxCols = 500;
+    if(numPlateImg.cols > maxCols){
+        float scale = (float) maxCols / numPlateImg.cols;
+        Size newSize = Size(numPlateImg.cols * scale, numPlateImg.rows * scale);
+        resize(numPlateImg, numPlateImg, newSize);
+    }
+
+    vector<RLERegion> mserRLEs;
     vector<Rect> mserBoxes;
     genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
     
@@ -509,8 +532,8 @@ string Reader::readNumPlate(Mat &numPlateImg){
     for(Candidate c : selectedCandidates){
         int thickness = ceil(numPlateImg.cols / 1000.0);
         Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
-        rectangle(numPlateImg, c.boundBox, color, thickness);
-        putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
+        rectangle(numPlateImg, c.boundBox, color, thickness+1);
+        putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
     }
     imwrite(string("debugFiles/read/numPlate_") + to_string(numDetections) + ".jpg", numPlateImg);
     

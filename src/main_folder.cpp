@@ -51,9 +51,9 @@ void drawResult(Mat &img, RotatedRect &box, string str){
     box.points(corners);
     int thickness = ceil(img.cols/1000.0);
     for(int i=0; i<4; i++){
-        line(img, corners[i], corners[(i+1)%4], color, thickness);
+        line(img, corners[i], corners[(i+1)%4], color, thickness+1);
     }
-    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
+    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
 }
 
 char imdisplay(Mat dispImg, string windowName = "Display"){
