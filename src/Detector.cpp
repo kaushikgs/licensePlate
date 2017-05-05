@@ -287,6 +287,8 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         Size dsize(round(scale*inputImage.cols), round(scale*inputImage.rows));
         resize(inputImage, smalImage, dsize);
     }
+    else
+    	smalImage = inputImage;
 
     genRegions(smalImage, smalBoxes);
     

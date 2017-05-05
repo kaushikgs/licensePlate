@@ -51,9 +51,9 @@ void drawResult(Mat &img, RotatedRect &box, string str){
     box.points(corners);
     int thickness = ceil(img.cols/1000.0);
     for(int i=0; i<4; i++){
-        line(img, corners[i], corners[(i+1)%4], color, thickness+1);
+        line(img, corners[i], corners[(i+1)%4], color, thickness);
     }
-    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
+    putText(img, str, corners[1], FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
 }
 
 char imdisplay(Mat dispImg, string windowName = "Display"){
@@ -112,7 +112,7 @@ int main(int argc, char **argv){
 
         vector<string> numPlateStrs;
         for(Mat numPlateImg : numPlateImgs){    //TODO: use iterator for performance
-            string numPlateStr = reader.readNumPlate( numPlateImg);
+            string numPlateStr = reader.readNumPlate( numPlateImg, imageName);
             numPlateStrs.push_back(numPlateStr);
         }
         chrono::steady_clock::time_point read_t = chrono::steady_clock::now();
@@ -125,7 +125,7 @@ int main(int argc, char **argv){
         chrono::steady_clock::time_point drawn_t = chrono::steady_clock::now();
 
         //displayResult(image, imagePath);
-        imwrite(string("debugFiles/result/") + imageName, image);
+        imwrite(string("debugFiles/result/") + imageName + "_result.jpg", image);
 
         cout << numPlateImgs.size() << " number plates found in " << imagePath << endl;
         cout << "Detection: " << chrono::duration_cast<std::chrono::milliseconds> (detected_t - start_t).count() << " ms" << endl;

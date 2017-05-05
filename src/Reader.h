@@ -19,7 +19,7 @@ class Reader{
     
 public:
     Reader(string configPath);
-    std::string readNumPlate(cv::Mat &numPlateImg);
+    std::string readNumPlate(cv::Mat &numPlateImg, string imageName);
 };
 
 #endif

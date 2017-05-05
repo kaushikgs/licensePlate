@@ -1,5 +1,5 @@
 /home/kaushik/numPlateRecn/src/test/alexnet_deploy.prototxt
-/home/kaushik/numPlateRecn/trained_cnns/Fonts_ICDAR2015mser_Extracted_alexnet37_iter_5500.caffemodel
-/home/kaushik/numPlateRecn/datasets/Fonts_ICDAR2015mser_Extracted/train_mean.binaryproto
+/media/data/kaushik/numPlateRecn_29417/trained_cnns/Fonts_ICDAR2015mser_Extracted_alexnet37_iter_5500.caffemodel
+/media/data/kaushik/numPlateRecn_29417/datasets/Fonts_ICDAR2015mser_Extracted/train_mean.binaryproto
 30 100 64
 0.5

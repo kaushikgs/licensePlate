@@ -1,5 +1,5 @@
 /home/kaushik/numberPlate/src/test/alexnet.prototxt
-/home/kaushik/numberPlate/trained_cnns/Croatia_institute_markus_NTUA_anrr_full_25k_0.8_alexnet_0.001_100.caffemodel
-/home/kaushik/numberPlate/datasets/Croatia_institute_markus_NTUA_anrr_full_25k_0.8/Croatia_institute_markus_NTUA_anrr_full_25k_0.8.mean
+/media/data/kaushik/numberPlate_29417/trained_cnns/Croatia_institute_markus_NTUA_anrr_full_25k_0.8_alexnet_0.001_100.caffemodel
+/media/data/kaushik/numberPlate_29417/datasets/Croatia_institute_markus_NTUA_anrr_full_25k_0.8/Croatia_institute_markus_NTUA_anrr_full_25k_0.8.mean
 287 95 64
 0.8

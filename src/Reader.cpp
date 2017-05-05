@@ -436,7 +436,7 @@ void printProbs(vector<float> &probs){
     cout << "None" << ": " << probs[cint] << endl;
 }
 
-string Reader::readNumPlate(Mat &numPlateImg){
+string Reader::readNumPlate(Mat &numPlateImg, string imageName){
     int maxCols = 500;
     if(numPlateImg.cols > maxCols){
         float scale = (float) maxCols / numPlateImg.cols;
@@ -472,7 +472,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = makeMatFrmRLE(mserRLEs[readNo], mserBoxes[readNo]);
-            imwrite(string("debugFiles/read/candidate_") + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
+            imwrite(string("debugFiles/read/") + imageName + "_candidate_" + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
             // if(i == 7){
             //     candidateMat = imread(string("debugFiles/read/candidate_") + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", IMREAD_GRAYSCALE);
             // }
@@ -505,7 +505,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
                 labelCode = numClasses-1;
             else
                 labelCode = ptr - begin;
-            imwrite(string("debugFiles/result/") + to_string(labelCode) + "/" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+            imwrite(string("debugFiles/result/") + to_string(labelCode) + "/" + imageName + "_" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
 
             // if(i == 7){
             //     vector<float> probs(begin, end);
@@ -535,7 +535,7 @@ string Reader::readNumPlate(Mat &numPlateImg){
         rectangle(numPlateImg, c.boundBox, color, thickness+1);
         putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
     }
-    imwrite(string("debugFiles/read/numPlate_") + to_string(numDetections) + ".jpg", numPlateImg);
+    imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", numPlateImg);
     
     numDetections++;
     return numPlateStr;
