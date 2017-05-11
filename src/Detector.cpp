@@ -312,7 +312,9 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = cropRegion(inputImage, mserBoxes[readNo]);
-            // imwrite(string("debugFiles/detect/b4processing_") + to_string(readNo) + ".jpg", candidateMat);  //DEBUG
+#ifdef DEBUG
+            imwrite(string("debugFiles/detect/b4processing_") + to_string(readNo) + ".jpg", candidateMat);
+#endif /* DEBUG */
             batchMats.push_back( preprocessMat(candidateMat));
             readNo++;
         }

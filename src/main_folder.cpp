@@ -83,6 +83,7 @@ void displayResult(Mat &image, string windowName){
 }
 
 int main(int argc, char **argv){
+    chrono::steady_clock::time_point beginInit_t = chrono::steady_clock::now();
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0]
                   << " <image path>" << std::endl;
@@ -99,7 +100,9 @@ int main(int argc, char **argv){
     Detector detector("detectConfig.txt");
     Reader reader("readConfig.txt");
     vector<string> imageNames = listDirectory(folderPath, false);
+    chrono::steady_clock::time_point init_t = chrono::steady_clock::now();
     
+    int detectTime=0, readTime = 0, drawTime=0;
     for(string imageName : imageNames){
         string imagePath = folderPath + imageName;
         Mat image = imread(imagePath);
@@ -127,9 +130,15 @@ int main(int argc, char **argv){
         //displayResult(image, imagePath);
         imwrite(string("debugFiles/result/") + imageName + "_result.jpg", image);
 
-        cout << numPlateImgs.size() << " number plates found in " << imagePath << endl;
-        cout << "Detection: " << chrono::duration_cast<std::chrono::milliseconds> (detected_t - start_t).count() << " ms" << endl;
-        cout << "Recognition: " << chrono::duration_cast<std::chrono::milliseconds> (read_t - detected_t).count() << " ms" << endl;
-        cout << "Drawing results: " << chrono::duration_cast<std::chrono::milliseconds> (drawn_t - read_t).count() << " ms" << endl;
+        //cout << numPlateImgs.size() << " number plates found in " << imagePath << endl;
+        detectTime += chrono::duration_cast<std::chrono::milliseconds> (detected_t - start_t).count();
+        readTime += chrono::duration_cast<std::chrono::milliseconds> (read_t - detected_t).count();
+        drawTime += chrono::duration_cast<std::chrono::milliseconds> (drawn_t - read_t).count();
     }
+
+    cout << "Initialization: " << chrono::duration_cast<std::chrono::milliseconds> (init_t - beginInit_t).count() << " ms" << endl;
+    cout << "Total Detection: " << detectTime << " ms" << endl;
+    cout << "Average Detection: " << (float) detectTime / imageNames.size() << " ms" << endl;
+    cout << "Recognition: " << readTime << " ms" << endl;
+    cout << "Drawing results: " << drawTime << " ms" << endl;
 }

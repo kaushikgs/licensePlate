@@ -448,14 +448,11 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
     vector<Rect> mserBoxes;
     genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
     
-    mkdir("debugFiles/result", 0777);
+#ifdef DEBUG
     for(int i=0; i<37; i++){
-        mkdir((string("debugFiles/result/") + to_string(i) + "/").c_str(), 0777);
+        mkdir((string("debugFiles/read/") + to_string(i) + "/").c_str(), 0777);
     }
-    // for(int i = 0; i < 26; i++){
-    //     mkdir((string("debugFiles/result/") + to_string('A' + i) + "/").c_str(), 0777);
-    // }
-    // mkdir((string("debugFiles/result/") + "," + "/").c_str(), 0777);
+#endif /* DEBUG */
 
     int numBatches = ceil( ((float) mserRLEs.size()) / batchSize);
     vector<Mat> batchMats;
@@ -472,24 +469,11 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = makeMatFrmRLE(mserRLEs[readNo], mserBoxes[readNo]);
+#ifdef DEBUG
             imwrite(string("debugFiles/read/") + imageName + "_candidate_" + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
-            // if(i == 7){
-            //     candidateMat = imread(string("debugFiles/read/candidate_") + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", IMREAD_GRAYSCALE);
-            // }
+#endif /* DEBUG */
             candidateMat.convertTo(candidateMat, CV_32FC1);
-            // if(i == 10){
-            //     // printMat2(candidateMat);
-            // }
             subtract(candidateMat, mean, candidateMat);
-            // if(i == 10){
-            //     // printMat2(candidateMat);
-            //     printMat2(mean);
-            // }
-            // cout << "after mean subtraction type " << candidateMat.type() << endl;
-            // cout << candidateMat.channels() << " channels vs. " << mean.channels() << endl;
-            // cout << candidateMat.size() << " size vs. " << mean.size() << endl;
-            // cout << candidateMat.type() << " type vs. " << mean.type() << endl;
-
             batchMats.push_back(candidateMat);
             readNo++;
         }
@@ -505,21 +489,10 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
                 labelCode = numClasses-1;
             else
                 labelCode = ptr - begin;
-            imwrite(string("debugFiles/result/") + to_string(labelCode) + "/" + imageName + "_" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+#ifdef DEBUG
+            imwrite(string("debugFiles/read/") + to_string(labelCode) + "/" + imageName + "_" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+#endif /* DEBUG */
 
-            // if(i == 7){
-            //     vector<float> probs(begin, end);
-            //     printProbs(probs);
-            //     cout << "labelcode is " << labelCode << " and score is " << *ptr << endl;
-            //     // imwrite("debugFiles/batchMat.jpg", batchMats[i]);
-            //     // imwrite("debugFiles/candidateMat.jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));
-            // }
-
-
-            // if(label != ',')
-            //     selectedCandidates.push_back(Candidate(mserBoxes[batchNo * batchSize + i], label));
-            // labelCode = 10;
-            
             if(labelCode != (numClasses-1)) // not none class
                 selectedCandidates.push_back( Candidate(mserBoxes[writeNo], labelCode));
 
@@ -535,7 +508,9 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
         rectangle(numPlateImg, c.boundBox, color, thickness+1);
         putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
     }
+#ifdef DEBUG
     imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", numPlateImg);
+#endif /* DEBUG */
     
     numDetections++;
     return numPlateStr;
