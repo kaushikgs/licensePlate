@@ -66,8 +66,8 @@ int main(int argc, char **argv){
     string imageName = imagePath.substr(lastindex);
 
     system("rm debugFiles/detect/*");   //DEBUG
-    system("rm debugFiles/read/*"); //DEBUG
-    system("rm -r debugFiles/result/*");   //DEBUG
+    system("rm debugFiles/result/*"); //DEBUG
+    system("rm -r debugFiles/read/*");   //DEBUG
     // system("rm -r debugFiles/mats/*");   //DEBUG
 
     Detector detector("detectConfig.txt");
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
     }
     chrono::steady_clock::time_point drawn_t = chrono::steady_clock::now();
 
-    displayResult(image, imagePath);
+    // displayResult(image, imagePath);
     imwrite("debugFiles/result/" + imageName + "_result.jpg", image);
 
     cout << numPlateImgs.size() << " number plates found in " << imagePath << endl;

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <chrono>
 // #include <sys/stat.h>
 #include "mser.h"
 #include "Convnet.h"
@@ -165,10 +166,69 @@ void Detector::filterNConvertEllipses(Mat &image, vector<ellipseParameters> &mse
     }
 }
 
-void Detector::genRegions(Mat &image, vector<RotatedRect> &numPlateBoxes){
+bool overlap(const RotatedRect &r1, const RotatedRect &r2, int imgWidth, int imgHeight, float thresh){
+    if(abs(r1.center.x - r2.center.x) > (imgWidth * thresh))    return false;
+    if(abs(r1.center.y - r2.center.y) > (imgHeight * thresh))    return false;
+    if(abs(r1.size.width - r2.size.width) > (imgWidth * thresh))    return false;
+    if(abs(r1.size.height - r2.size.height) > (imgHeight * thresh))    return false;
+    if(abs(r1.angle - r2.angle) > (360 * thresh))    return false;
+    return true;
+}
+
+void nms(const vector<RotatedRect> &srcRects, vector<RotatedRect> &destRects, int imgWidth, int imgHeight, float thresh){
+    if (srcRects.size() <= 0)
+    {
+        return;
+    }
+
+    vector<int> resIdxs;
+    // Sort the boxes by area
+    std::multimap<int, size_t> idxs;
+    for (size_t i = 0; i < srcRects.size(); ++i)
+    {
+        idxs.insert(std::pair<int, size_t>(srcRects[i].size.width * srcRects[i].size.height, i));
+    }
+
+    // keep looping while some indexes still remain in the indexes list
+    while (idxs.size() > 0)
+    {
+        // grab the last rectangle
+        auto lastElem = --std::end(idxs);
+        const RotatedRect& rect1 = srcRects[lastElem->second];
+
+        resIdxs.push_back(lastElem->second);
+
+        idxs.erase(lastElem);
+
+        for (auto pos = std::begin(idxs); pos != std::end(idxs); )
+        {
+            // grab the current rectangle
+            const RotatedRect& rect2 = srcRects[pos->second];
+
+            // if there is sufficient overlap, suppress the current bounding box
+            if (overlap(rect1, rect2, imgWidth, imgHeight, thresh))
+            {
+                pos = idxs.erase(pos);
+            }
+            else
+            {
+                ++pos;
+            }
+        }
+    }
+
+    for(int idx : resIdxs){
+        destRects.push_back(srcRects[idx]);
+    }
+}
+
+void Detector::genRegions(Mat &image, vector<RotatedRect> &boxes){
     vector<ellipseParameters> mserEllipses;
     genMSEREllipses(image, mserEllipses);
-    filterNConvertEllipses(image, mserEllipses, numPlateBoxes);
+    vector<RotatedRect> manyBoxes;
+    filterNConvertEllipses(image, mserEllipses, manyBoxes);
+    nms(manyBoxes, boxes, image.cols, image.rows, 0.05);
+    // boxes.insert(boxes.end(), manyBoxes.begin(), manyBoxes.end());
 }
 
 void remapRects(float scale, vector<RotatedRect> &allRects, vector<RotatedRect> &scaledRects){
@@ -277,7 +337,6 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
 
     int maxSize = 750;
     float scale = -1;
-    Mat imageCopy = inputImage.clone();
     
     if(inputImage.rows > maxSize || inputImage.cols> maxSize){
         if(inputImage.rows > inputImage.cols)
@@ -290,8 +349,11 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
     else
     	smalImage = inputImage;
 
+    // chrono::steady_clock::time_point genRegionsStart_t = chrono::steady_clock::now();
     genRegions(smalImage, smalBoxes);
+    // chrono::steady_clock::time_point genRegionsEnd_t = chrono::steady_clock::now();
     
+    mserBoxes.reserve(smalBoxes.size());
     if (scale!=-1){
         remapRects(scale, smalBoxes, mserBoxes);
     }
@@ -301,7 +363,12 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
     
     int numBatches = ceil( ((float) mserBoxes.size()) / batchSize);
     vector<Mat> batchMats;
-    
+    batchMats.reserve(batchSize);
+    // chrono::steady_clock::time_point genRegionsEnd_t = chrono::steady_clock::now();
+
+    // chrono::steady_clock::time_point cnnStart_t = chrono::steady_clock::now();
+    vector<Mat> allCandidateMats;
+    allCandidateMats.reserve(mserBoxes.size());
     for(int batchNo = 0, readNo = 0, writeNo = 0; batchNo < numBatches; batchNo++){
         int curBatchSize;
         if(batchNo == (numBatches - 1) && ((mserBoxes.size() % batchSize) != 0))
@@ -312,6 +379,7 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         batchMats.clear();
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = cropRegion(inputImage, mserBoxes[readNo]);
+            allCandidateMats.push_back(candidateMat);
 #ifdef DEBUG
             imwrite(string("debugFiles/detect/b4processing_") + to_string(readNo) + ".jpg", candidateMat);
 #endif /* DEBUG */
@@ -323,16 +391,17 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         for(int i=0; i < curBatchSize; i++){
             if(batchScores[2*i] > threshold){
                 RotatedRect fullRect = mserBoxes[writeNo];
-                if(liesInside(imageCopy, fullRect)){
-                    Mat numPlateImg = cropRegion(imageCopy, fullRect);
-                    numPlateImgs.push_back( numPlateImg);
+                if(liesInside(inputImage, fullRect)){
+                    // Mat numPlateImg = cropRegion(inputImage, fullRect);
+                    // numPlateImgs.push_back( numPlateImg);
+                    numPlateImgs.push_back( allCandidateMats[writeNo]);
                     numPlateBoxes.push_back( fullRect);
                 }
                 else{
                     RotatedRect halfRect = fullRect;
                     halfRect.size.width = fullRect.size.width/2;
                     halfRect.size.height = fullRect.size.height/2;
-                    Mat numPlateImg = cropRegion(imageCopy, halfRect);
+                    Mat numPlateImg = cropRegion(inputImage, halfRect);
                     numPlateImgs.push_back( numPlateImg);
                     numPlateBoxes.push_back( halfRect);
                 }
@@ -340,5 +409,9 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
             writeNo++;
         }
     }
+    // chrono::steady_clock::time_point cnnEnd_t = chrono::steady_clock::now();
+
+    // cout << "genRegions: " << chrono::duration_cast<std::chrono::milliseconds> (genRegionsEnd_t - genRegionsStart_t).count() << " ms" << endl;
+    // cout << "CNN: " << chrono::duration_cast<std::chrono::milliseconds> (cnnEnd_t - cnnStart_t).count() << " ms\n\n" << endl;
     return;
 }
