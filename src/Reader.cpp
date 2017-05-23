@@ -114,30 +114,6 @@ void Reader::setMean(const string& meanPath) {
     // cout << "-----------------------------------" << endl;
 }
 
-// vector<RLERegion> importRLEVector(string tempRLEPath){
-//     vector<RLERegion> rle_vector;
-//     ifstream rleFile(tempRLEPath);
-
-//     for(int k = 0; k<2; k++){
-//         int numRegns;
-//         rleFile >> numRegns;
-//         for(int i=0; i < numRegns; i++)
-//         { 
-//             int regnLines;
-//             rleFile >> regnLines;
-//             RLERegion newRLE;
-//             for (int j=0; j < regnLines; j++){
-//                 RLEItem newLine;
-//                 rleFile >> newLine.line >> newLine.col1 >> newLine.col2;
-//                 newRLE.rle.push_back(newLine);
-//             }
-//             rle_vector.push_back(newRLE);
-//         }
-//     }
-//     rleFile.close();
-//     return rle_vector;
-// }
-
 void filterMSERs(vector<RLERegion> &allRles, vector<Rect> &allRects){
     auto iterRle = allRles.begin();
     for(auto iterRect = allRects.begin(); iterRect != allRects.end(); ){
@@ -436,6 +412,27 @@ void printProbs(vector<float> &probs){
     cout << "None" << ": " << probs[cint] << endl;
 }
 
+void drawRegions(Mat &img, string imageName, int numDetections, vector<Rect> &boxes){
+    Mat drawImg = img.clone();
+    for(Rect r : boxes){
+        int thickness = ceil(img.cols / 1000.0);
+        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
+        rectangle(drawImg, r, color, thickness);
+    }
+    imwrite(string("debugFiles/read/") + imageName + "_candidates_" + to_string(numDetections) + ".jpg", drawImg);
+}
+
+void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate> &candidates){
+    Mat drawImg = img.clone();
+    for(Candidate c : candidates){
+        int thickness = ceil(img.cols / 1000.0);
+        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
+        rectangle(drawImg, c.boundBox, color, thickness);
+        putText(drawImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
+    }
+    imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", drawImg);
+}
+
 string Reader::readNumPlate(Mat &numPlateImg, string imageName){
     int maxCols = 500;
     if(numPlateImg.cols > maxCols){
@@ -449,9 +446,11 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
     genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
     
 #ifdef DEBUG
+    drawRegions(numPlateImg, imageName, numDetections, mserBoxes);
     for(int i=0; i<37; i++){
         mkdir((string("debugFiles/read/") + to_string(i) + "/").c_str(), 0777);
     }
+    mkdir("debugFiles/read/candidates/", 0777);
 #endif /* DEBUG */
 
     int numBatches = ceil( ((float) mserRLEs.size()) / batchSize);
@@ -470,7 +469,7 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = makeMatFrmRLE(mserRLEs[readNo], mserBoxes[readNo]);
 #ifdef DEBUG
-            imwrite(string("debugFiles/read/") + imageName + "_candidate_" + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
+            imwrite(string("debugFiles/read/candidates/") + imageName + "_candidate_" + to_string(numDetections) + "_" + to_string(readNo) + ".jpg", candidateMat);   //DEBUG
 #endif /* DEBUG */
             candidateMat.convertTo(candidateMat, CV_32FC1);
             subtract(candidateMat, mean, candidateMat);
@@ -490,7 +489,7 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
             else
                 labelCode = ptr - begin;
 #ifdef DEBUG
-            imwrite(string("debugFiles/read/") + to_string(labelCode) + "/" + imageName + "_" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));    //DEBUG
+            imwrite(string("debugFiles/read/") + to_string(labelCode) + "/" + imageName + "_" + to_string(numDetections) + "_" + to_string(writeNo) + ".jpg", makeMatFrmRLE(mserRLEs[writeNo], mserBoxes[writeNo]));
 #endif /* DEBUG */
 
             if(labelCode != (numClasses-1)) // not none class
@@ -502,14 +501,8 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
 
     string numPlateStr = makeNumPlateStr(numPlateImg, selectedCandidates);
 
-    for(Candidate c : selectedCandidates){
-        int thickness = ceil(numPlateImg.cols / 1000.0);
-        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
-        rectangle(numPlateImg, c.boundBox, color, thickness+1);
-        putText(numPlateImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness+1);
-    }
 #ifdef DEBUG
-    imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", numPlateImg);
+    drawResult(numPlateImg, imageName, numDetections, selectedCandidates);
 #endif /* DEBUG */
     
     numDetections++;

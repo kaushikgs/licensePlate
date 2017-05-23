@@ -77,7 +77,7 @@ int main(int argc, char **argv){
     chrono::steady_clock::time_point init_t = chrono::steady_clock::now();
     vector<Mat> numPlateImgs;
     vector<RotatedRect> numPlateBoxes;
-    detector.detectNumPlates(image, numPlateImgs, numPlateBoxes);
+    detector.detectNumPlates(image, imageName, numPlateImgs, numPlateBoxes);
     chrono::steady_clock::time_point detected_t = chrono::steady_clock::now();
 
     vector<string> numPlateStrs;

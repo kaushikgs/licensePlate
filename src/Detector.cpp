@@ -306,9 +306,10 @@ Mat cropRegion(Mat &image, RotatedRect &rect){
     }
 }
 
-void writeMat(Mat &mat){
+#ifdef DEBUG
+void writeMat(Mat &mat, string imageName){
     static int num = 0;
-    ofstream file(string("debugFiles/mats/candidate_") + to_string(num) + ".mat");
+    ofstream file(string("debugFiles/mats/") + imageName + "_candidate_" + to_string(num) + ".mat");
     for(int i=0; i<mat.rows; i++){
         for(int j=0; j<mat.cols; j++){
             file << "(" << mat.at<Vec3f>(i,j)[0] << "," << mat.at<Vec3f>(i,j)[1] << "," << mat.at<Vec3f>(i,j)[2] << ") ";
@@ -318,6 +319,7 @@ void writeMat(Mat &mat){
     file.close();
     num++;
 }
+#endif /* DEBUG */
 
 Mat Detector::preprocessMat(Mat &input){
     Mat resized_bgr, resized_rgb, rescaled, normalized;
@@ -331,7 +333,7 @@ Mat Detector::preprocessMat(Mat &input){
     return normalized;
 }
 
-void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vector<RotatedRect> &numPlateBoxes){
+void Detector::detectNumPlates(Mat &inputImage, string imageName, vector<Mat> &numPlateImgs, vector<RotatedRect> &numPlateBoxes){
     vector<RotatedRect> smalBoxes, mserBoxes;
     Mat smalImage;
 
@@ -380,9 +382,9 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
         for(int i = 0; i < curBatchSize; i++){
             Mat candidateMat = cropRegion(inputImage, mserBoxes[readNo]);
             allCandidateMats.push_back(candidateMat);
-#ifdef DEBUG
-            imwrite(string("debugFiles/detect/b4processing_") + to_string(readNo) + ".jpg", candidateMat);
-#endif /* DEBUG */
+// #ifdef DEBUG
+//             imwrite(string("debugFiles/detect/") + imageName + "_candidate_" + to_string(readNo) + ".jpg", candidateMat);
+// #endif /* DEBUG */
             batchMats.push_back( preprocessMat(candidateMat));
             readNo++;
         }
@@ -396,6 +398,9 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
                     // numPlateImgs.push_back( numPlateImg);
                     numPlateImgs.push_back( allCandidateMats[writeNo]);
                     numPlateBoxes.push_back( fullRect);
+#ifdef DEBUG
+                    imwrite(string("debugFiles/detect/") + imageName + "_detected_" + to_string(writeNo) + ".jpg", allCandidateMats[writeNo]);
+#endif /* DEBUG */                    
                 }
                 else{
                     RotatedRect halfRect = fullRect;
@@ -404,6 +409,9 @@ void Detector::detectNumPlates(Mat &inputImage, vector<Mat> &numPlateImgs, vecto
                     Mat numPlateImg = cropRegion(inputImage, halfRect);
                     numPlateImgs.push_back( numPlateImg);
                     numPlateBoxes.push_back( halfRect);
+#ifdef DEBUG
+                    imwrite(String("debugFiles/detect/") + imageName + "_detected_" + to_string(writeNo) + ".jpg", numPlateImg);
+#endif /* DEBUG */                    
                 }
             }
             writeNo++;

@@ -93,8 +93,8 @@ int main(int argc, char **argv){
     string folderPath = argv[1];
 
     system("rm debugFiles/detect/*");   //DEBUG
-    system("rm debugFiles/read/*"); //DEBUG
-    system("rm -r debugFiles/result/*");   //DEBUG
+    system("rm -r debugFiles/read/*"); //DEBUG
+    system("rm debugFiles/result/*");   //DEBUG
     // system("rm -r debugFiles/mats/*");   //DEBUG
 
     Detector detector("detectConfig.txt");
@@ -110,7 +110,7 @@ int main(int argc, char **argv){
         chrono::steady_clock::time_point start_t = chrono::steady_clock::now();
         vector<Mat> numPlateImgs;
         vector<RotatedRect> numPlateBoxes;
-        detector.detectNumPlates(image, numPlateImgs, numPlateBoxes);
+        detector.detectNumPlates(image, imageName, numPlateImgs, numPlateBoxes);
         chrono::steady_clock::time_point detected_t = chrono::steady_clock::now();
 
         vector<string> numPlateStrs;

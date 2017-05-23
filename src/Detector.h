@@ -20,7 +20,7 @@ class Detector{
 
 public:
     Detector(string configPath);
-    void detectNumPlates(cv::Mat &image, std::vector<cv::Mat> &numPlateImgs, std::vector<cv::RotatedRect> &numPlateBoxes);
+    void detectNumPlates(cv::Mat &image, string imageName, std::vector<cv::Mat> &numPlateImgs, std::vector<cv::RotatedRect> &numPlateBoxes);
 };
 
 #endif
