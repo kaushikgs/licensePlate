@@ -3,3 +3,5 @@
 /media/data/kaushik/numPlateRecn_29417/datasets/Fonts_ICDAR2015mser_Extracted/train_mean.binaryproto
 30 100 512
 0.5
+/media/data/kaushik/svm/src/chars_ExtractedData_ICDAR2015_noneData_5000-C_SVC_RBF_py.xml
+/media/data/kaushik/svm/src/chars_ExtractedData_ICDAR2015_noneData_5000_scaler.txt

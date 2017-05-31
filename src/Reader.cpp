@@ -1,4 +1,5 @@
 #include <opencv2/core/core.hpp>
+#include <opencv2/ml/ml.hpp>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -60,10 +61,12 @@ struct Candidate{
 
 Reader::Reader(string configPath) {
 	string modelPath, weightsPath, meanPath;
+    string svmPath, svmScalerPath;
     int regionWidth, regionHeight;
     ifstream configFile(configPath);
     configFile >> modelPath >> weightsPath >> meanPath;
     configFile >> regionWidth >> regionHeight >> batchSize >> threshold;
+    configFile >> svmPath >> svmScalerPath;
     configFile.close();
 
     regionSize = Size(regionWidth, regionHeight);
@@ -72,6 +75,23 @@ Reader::Reader(string configPath) {
 
     numDetections = 0;  //DEBUG
     numClasses = 37;
+
+    svm.load(svmPath.c_str());
+    ifstream svmScalerTxt(svmScalerPath);
+    int nfeats = regionHeight * regionWidth;
+    svmMean.reserve(nfeats);
+    svmStd.reserve(nfeats);
+    for(int i=0; i<nfeats; i++){
+        float meanElmnt;
+        svmScalerTxt >> meanElmnt;
+        svmMean.push_back(meanElmnt);
+    }
+    for(int i=0; i<nfeats; i++){
+        float stdElmnt;
+        svmScalerTxt >> stdElmnt;
+        svmStd.push_back(stdElmnt);
+    }
+    svmScalerTxt.close();
 }
 
 /* Load the mean file in binaryproto format. */
@@ -178,12 +198,60 @@ void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float
     }
 }
 
-void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
+void Reader::svmFilter(Mat &img, vector<Rect> &allRects, vector<int> &srcIdxs, vector<int> &dstIdxs){
+    int dsize = srcIdxs.size();
+    int nfeats = (regionSize.width+10) * (regionSize.height+10);    //10 addition due to padding
+    Mat X(dsize, nfeats, CV_32FC1), Y(dsize, 1, CV_32FC1);
+
+    for(int i=0; i<srcIdxs.size(); i++){
+        int idx = srcIdxs[i];
+        Mat regnImg(img, allRects[idx]);
+        cvtColor(regnImg, regnImg, CV_BGR2GRAY);
+        regnImg.convertTo(regnImg, CV_32FC1);
+        int regnH = regionSize.height+10;
+        int regnW = regionSize.width+10;
+        resize(regnImg, regnImg, Size(regnW, regnH));
+        for(int r = 0, e=0; r<regnH; r++){
+            for(int c = 0; c<regnW; c++){
+                X.at<float>(i, e) = (regnImg.at<float>(r, c) - svmMean[c]) / svmStd[c];
+                e++;
+            }
+        }
+    }
+
+    svm.predict(X, Y);
+    for(int i=0; i<dsize; i++){
+        if(Y.at<float>(i) == 1){
+            dstIdxs.push_back(srcIdxs[i]);
+        }
+    }
+}
+
+void drawRegions(Mat &img, string imageName, int numDetections, string fileNamePart, vector<Rect> &boxes, vector<int> idxs = {-1}){
+    vector<Rect> drawBoxes;
+    if(idxs.size() == 1 && idxs[0] == -1){
+        drawBoxes = boxes;
+    }
+    else{
+        for(int idx : idxs){
+            drawBoxes.push_back(boxes[idx]);
+        }
+    }
+    Mat drawImg = img.clone();
+    for(Rect r : drawBoxes){
+        int thickness = ceil(img.cols / 1000.0);
+        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
+        rectangle(drawImg, r, color, thickness);
+    }
+    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_" + fileNamePart +  ".jpg", drawImg);
+}
+
+void Reader::genMSERRLEs(Mat &image, string imageName, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
     extrema::ExtremaParams p;
     p.preprocess = 0;
     p.max_area = 0.1;
     p.min_size = 30;
-    p.min_margin = 10;
+    p.min_margin = 5;
     p.relative = 0;
     p.verbose = 0;
     p.debug = 0;
@@ -203,15 +271,29 @@ void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxe
     vector<Rect> allRects;
     // convRleToRect(allRles, allRects);
     computeMSERRLEs(image, allRles, allRects, p, scale_factor);
+#ifdef DEBUG
+    drawRegions(image, imageName, numDetections, "allmsers", allRects);
+#endif
 
     filterMSERs(allRles, allRects);
   
     vector<int> fewIdxs;
     nms(allRects, fewIdxs, 0.6);
-    for(int i : fewIdxs){
+    
+    vector<int> fewrIdxs = fewIdxs;
+    // svmFilter(image, allRects, fewIdxs, fewrIdxs);
+
+    for(int i : fewrIdxs){
         mserRLEs.push_back(allRles[i]);
         mserBoxes.push_back(allRects[i]);
     }
+    // mserRLEs = allRles;
+    // mserBoxes = allRects;
+#ifdef DEBUG
+    drawRegions(image, imageName, numDetections, "filteredmsers", allRects);
+    drawRegions(image, imageName, numDetections, "nms", allRects, fewIdxs);
+    // drawRegions(image, imageName, numDetections, "svm", allRects, fewrIdxs);
+#endif
 }
 
 Mat Reader::makeMatFrmRLE(RLERegion &region, Rect &boundBox){
@@ -412,16 +494,6 @@ void printProbs(vector<float> &probs){
     cout << "None" << ": " << probs[cint] << endl;
 }
 
-void drawRegions(Mat &img, string imageName, int numDetections, vector<Rect> &boxes){
-    Mat drawImg = img.clone();
-    for(Rect r : boxes){
-        int thickness = ceil(img.cols / 1000.0);
-        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
-        rectangle(drawImg, r, color, thickness);
-    }
-    imwrite(string("debugFiles/read/") + imageName + "_candidates_" + to_string(numDetections) + ".jpg", drawImg);
-}
-
 void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate> &candidates){
     Mat drawImg = img.clone();
     for(Candidate c : candidates){
@@ -430,7 +502,7 @@ void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate>
         rectangle(drawImg, c.boundBox, color, thickness);
         putText(drawImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
     }
-    imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", drawImg);
+    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_yo.jpg", drawImg);
 }
 
 string Reader::readNumPlate(Mat &numPlateImg, string imageName){
@@ -443,10 +515,10 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
 
     vector<RLERegion> mserRLEs;
     vector<Rect> mserBoxes;
-    genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
+    genMSERRLEs(numPlateImg, imageName, mserRLEs, mserBoxes);
     
 #ifdef DEBUG
-    drawRegions(numPlateImg, imageName, numDetections, mserBoxes);
+    // drawRegions(numPlateImg, imageName, numDetections, "candidates", mserBoxes);
     for(int i=0; i<37; i++){
         mkdir((string("debugFiles/read/") + to_string(i) + "/").c_str(), 0777);
     }
