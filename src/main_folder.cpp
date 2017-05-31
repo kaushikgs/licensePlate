@@ -110,13 +110,16 @@ int main(int argc, char **argv){
         chrono::steady_clock::time_point start_t = chrono::steady_clock::now();
         vector<Mat> numPlateImgs;
         vector<RotatedRect> numPlateBoxes;
-        detector.detectNumPlates(image, imageName, numPlateImgs, numPlateBoxes);
+        vector<bool> doubled;
+        detector.detectNumPlates(image, imageName, numPlateImgs, numPlateBoxes, doubled);
         chrono::steady_clock::time_point detected_t = chrono::steady_clock::now();
 
         vector<string> numPlateStrs;
+        int detNo=0;
         for(Mat numPlateImg : numPlateImgs){    //TODO: use iterator for performance
-            string numPlateStr = reader.readNumPlate( numPlateImg, imageName);
+            string numPlateStr = reader.readNumPlate( numPlateImg, imageName, doubled[detNo]);
             numPlateStrs.push_back(numPlateStr);
+            detNo++;
         }
         chrono::steady_clock::time_point read_t = chrono::steady_clock::now();
 

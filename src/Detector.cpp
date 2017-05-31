@@ -333,7 +333,7 @@ Mat Detector::preprocessMat(Mat &input){
     return normalized;
 }
 
-void Detector::detectNumPlates(Mat &inputImage, string imageName, vector<Mat> &numPlateImgs, vector<RotatedRect> &numPlateBoxes){
+void Detector::detectNumPlates(Mat &inputImage, string imageName, vector<Mat> &numPlateImgs, vector<RotatedRect> &numPlateBoxes, vector<bool> &doubled){
     vector<RotatedRect> smalBoxes, mserBoxes;
     Mat smalImage;
 
@@ -398,6 +398,7 @@ void Detector::detectNumPlates(Mat &inputImage, string imageName, vector<Mat> &n
                     // numPlateImgs.push_back( numPlateImg);
                     numPlateImgs.push_back( allCandidateMats[writeNo]);
                     numPlateBoxes.push_back( fullRect);
+                    doubled.push_back(true);
 #ifdef DEBUG
                     imwrite(string("debugFiles/detect/") + imageName + "_detected_" + to_string(writeNo) + ".jpg", allCandidateMats[writeNo]);
 #endif /* DEBUG */                    
@@ -409,6 +410,7 @@ void Detector::detectNumPlates(Mat &inputImage, string imageName, vector<Mat> &n
                     Mat numPlateImg = cropRegion(inputImage, halfRect);
                     numPlateImgs.push_back( numPlateImg);
                     numPlateBoxes.push_back( halfRect);
+                    doubled.push_back(false);
 #ifdef DEBUG
                     imwrite(String("debugFiles/detect/") + imageName + "_detected_" + to_string(writeNo) + ".jpg", numPlateImg);
 #endif /* DEBUG */                    

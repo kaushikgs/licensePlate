@@ -133,10 +133,15 @@ void drawRegions(Mat &img, string imageName, int numDetections, string fileNameP
     imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_" + fileNamePart +  ".jpg", drawImg);
 }
 
-void filterMSERs(vector<RLERegion> &allRles, vector<Rect> &allRects){
+void filterMSERs(Mat &img, bool doubled, vector<RLERegion> &allRles, vector<Rect> &allRects){
+    Rect halfImg(img.cols/4, img.rows/4, ceil(img.cols/2.0), ceil(img.rows/2.0));
     auto iterRle = allRles.begin();
     for(auto iterRect = allRects.begin(); iterRect != allRects.end(); ){
         if(iterRect->width > 2*(iterRect->height)){
+            iterRect = allRects.erase(iterRect);
+            iterRle = allRles.erase(iterRle);
+        }
+        else if(doubled && ((*iterRect) & halfImg).area() == 0){
             iterRect = allRects.erase(iterRect);
             iterRle = allRles.erase(iterRle);
         }
@@ -197,7 +202,7 @@ void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float
     }
 }
 
-void Reader::genMSERRLEs(Mat &image, string imageName, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
+void Reader::genMSERRLEs(Mat &image, string imageName, bool  doubled, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
     extrema::ExtremaParams p;
     p.preprocess = 0;
     p.max_area = 0.1;
@@ -226,7 +231,7 @@ void Reader::genMSERRLEs(Mat &image, string imageName, vector<RLERegion> &mserRL
     drawRegions(image, imageName, numDetections, "allmsers", allRects);
 #endif    
 
-    filterMSERs(allRles, allRects);
+    filterMSERs(image, doubled, allRles, allRects);
   
     vector<int> fewIdxs;
     nms(allRects, fewIdxs, 0.6);
@@ -450,7 +455,7 @@ void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate>
     imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_result.jpg", drawImg);
 }
 
-string Reader::readNumPlate(Mat &numPlateImg, string imageName){
+string Reader::readNumPlate(Mat &numPlateImg, string imageName, bool doubled){
     int maxCols = 500;
     if(numPlateImg.cols > maxCols){
         float scale = (float) maxCols / numPlateImg.cols;
@@ -460,7 +465,7 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
 
     vector<RLERegion> mserRLEs;
     vector<Rect> mserBoxes;
-    genMSERRLEs(numPlateImg, imageName, mserRLEs, mserBoxes);
+    genMSERRLEs(numPlateImg, imageName, doubled, mserRLEs, mserBoxes);
     
 #ifdef DEBUG
     for(int i=0; i<37; i++){
