@@ -114,6 +114,25 @@ void Reader::setMean(const string& meanPath) {
     // cout << "-----------------------------------" << endl;
 }
 
+void drawRegions(Mat &img, string imageName, int numDetections, string fileNamePart, vector<Rect> &boxes, vector<int> idxs = {-1}){
+    vector<Rect> drawBoxes;
+    if(idxs.size() == 1 && idxs[0] == -1){
+        drawBoxes = boxes;
+    }
+    else{
+        for(int idx : idxs){
+            drawBoxes.push_back(boxes[idx]);
+        }
+    }
+    Mat drawImg = img.clone();
+    for(Rect r : drawBoxes){
+        int thickness = ceil(img.cols / 1000.0);
+        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
+        rectangle(drawImg, r, color, thickness);
+    }
+    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_" + fileNamePart +  ".jpg", drawImg);
+}
+
 void filterMSERs(vector<RLERegion> &allRles, vector<Rect> &allRects){
     auto iterRle = allRles.begin();
     for(auto iterRect = allRects.begin(); iterRect != allRects.end(); ){
@@ -178,12 +197,12 @@ void nms(const std::vector<cv::Rect>& srcRects, std::vector<int>& resIdxs, float
     }
 }
 
-void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
+void Reader::genMSERRLEs(Mat &image, string imageName, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxes){
     extrema::ExtremaParams p;
     p.preprocess = 0;
     p.max_area = 0.1;
     p.min_size = 30;
-    p.min_margin = 10;
+    p.min_margin = 5;
     p.relative = 0;
     p.verbose = 0;
     p.debug = 0;
@@ -203,6 +222,9 @@ void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxe
     vector<Rect> allRects;
     // convRleToRect(allRles, allRects);
     computeMSERRLEs(image, allRles, allRects, p, scale_factor);
+#ifdef DEBUG
+    drawRegions(image, imageName, numDetections, "allmsers", allRects);
+#endif    
 
     filterMSERs(allRles, allRects);
   
@@ -212,6 +234,11 @@ void genMSERRLEs(Mat &image, vector<RLERegion> &mserRLEs, vector<Rect> &mserBoxe
         mserRLEs.push_back(allRles[i]);
         mserBoxes.push_back(allRects[i]);
     }
+
+#ifdef DEBUG
+    drawRegions(image, imageName, numDetections, "filteredmsers", allRects);
+    drawRegions(image, imageName, numDetections, "nms", allRects, fewIdxs);
+#endif
 }
 
 Mat Reader::makeMatFrmRLE(RLERegion &region, Rect &boundBox){
@@ -412,16 +439,6 @@ void printProbs(vector<float> &probs){
     cout << "None" << ": " << probs[cint] << endl;
 }
 
-void drawRegions(Mat &img, string imageName, int numDetections, vector<Rect> &boxes){
-    Mat drawImg = img.clone();
-    for(Rect r : boxes){
-        int thickness = ceil(img.cols / 1000.0);
-        Scalar color(rand()%200, rand()%200, rand()%200);   //avoid whitey colors
-        rectangle(drawImg, r, color, thickness);
-    }
-    imwrite(string("debugFiles/read/") + imageName + "_candidates_" + to_string(numDetections) + ".jpg", drawImg);
-}
-
 void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate> &candidates){
     Mat drawImg = img.clone();
     for(Candidate c : candidates){
@@ -430,7 +447,7 @@ void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate>
         rectangle(drawImg, c.boundBox, color, thickness);
         putText(drawImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
     }
-    imwrite(string("debugFiles/read/") + imageName + "_numplate_" + to_string(numDetections) + ".jpg", drawImg);
+    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_result.jpg", drawImg);
 }
 
 string Reader::readNumPlate(Mat &numPlateImg, string imageName){
@@ -443,10 +460,9 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName){
 
     vector<RLERegion> mserRLEs;
     vector<Rect> mserBoxes;
-    genMSERRLEs(numPlateImg, mserRLEs, mserBoxes);
+    genMSERRLEs(numPlateImg, imageName, mserRLEs, mserBoxes);
     
 #ifdef DEBUG
-    drawRegions(numPlateImg, imageName, numDetections, mserBoxes);
     for(int i=0; i<37; i++){
         mkdir((string("debugFiles/read/") + to_string(i) + "/").c_str(), 0777);
     }

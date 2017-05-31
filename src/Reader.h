@@ -15,6 +15,7 @@ class Reader{
 
     void setMean(const std::string &meanPath);
     cv::Mat preprocessMat(cv::Mat &input);
+    void genMSERRLEs(cv::Mat &image, std::string imageName, std::vector<extrema::RLERegion> &mserRLEs, std::vector<cv::Rect> &mserBoxes);
     cv::Mat makeMatFrmRLE(extrema::RLERegion &region, cv::Rect &boundBox);
     
 public:

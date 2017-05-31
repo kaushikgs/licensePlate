@@ -138,7 +138,8 @@ int main(int argc, char **argv){
 
     cout << "Initialization: " << chrono::duration_cast<std::chrono::milliseconds> (init_t - beginInit_t).count() << " ms" << endl;
     cout << "Total Detection: " << detectTime << " ms" << endl;
+    cout << "Total Recognition: " << readTime << " ms" << endl;
     cout << "Average Detection: " << (float) detectTime / imageNames.size() << " ms" << endl;
-    cout << "Recognition: " << readTime << " ms" << endl;
+    cout << "Average Recognition: " << (float) readTime / imageNames.size() << " ms" << endl;
     cout << "Drawing results: " << drawTime << " ms" << endl;
 }
