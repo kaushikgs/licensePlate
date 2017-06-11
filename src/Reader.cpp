@@ -114,6 +114,41 @@ void Reader::setMean(const string& meanPath) {
     // cout << "-----------------------------------" << endl;
 }
 
+void Reader::initXML(){
+    xmlFile.open("debugFiles/read/detections.xml");    
+    xmlFile << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << endl;
+    xmlFile << "<tagset>" << endl;
+}
+
+int char2code(char c){
+    if('0' <= c && c <= '9'){
+        return c - '0';
+    }
+    else if('A' <= c && c <= 'Z'){
+        return 10 + c - 'A';
+    }
+    else{
+        return 36;
+    }
+}
+
+void Reader::writeXML(string imageName, float scale, vector<Candidate> &detections){
+    xmlFile << "\t<image>" << endl;
+    xmlFile << "\t\t" << "<imageName>" << imageName << "</imageName>" << endl;
+    xmlFile << "\t\t" << "<taggedRectangles>" << endl;
+    for(Candidate c : detections){
+        xmlFile << "\t\t\t" << "<taggedRectangle " << string("x=\"") << int(c.boundBox.x/scale) << "\" " << string("y=\"") << int(c.boundBox.y/scale) << "\" ";
+        xmlFile << string("width=\"") << int(c.boundBox.width/scale) << "\" " << string("height=\"") << int(c.boundBox.height/scale) << "\" " << string("modelType=\"") << char2code(c.label) << "\"" << "\t/>" << endl;
+    }
+    xmlFile << "\t\t" << "</taggedRectangles>" << endl;
+    xmlFile << "\t</image>" << endl;
+}
+
+void Reader::closeXML(){
+    xmlFile << "</tagset>" << endl;
+    xmlFile.close();
+}
+
 void drawRegions(Mat &img, string imageName, int numDetections, string fileNamePart, vector<Rect> &boxes, vector<int> idxs = {-1}){
     vector<Rect> drawBoxes;
     if(idxs.size() == 1 && idxs[0] == -1){
@@ -348,7 +383,7 @@ void filterCandidates(vector<Candidate> &candidates, vector<Candidate> &filtered
     }
 }
 
-string makeNumPlateStr(Mat &img, vector<Candidate> &selectedCandidates){
+string makeNumPlateStr(Mat &img, vector<Candidate> &selectedCandidates, vector<Candidate> &filtered){
     // sort(selectedCandidates.begin(), selectedCandidates.end()); //TODO: this will have NLogN object copies. Use pointers instead.
     // string numPlateStr = "";
     // char lastChar = ' ';
@@ -358,7 +393,6 @@ string makeNumPlateStr(Mat &img, vector<Candidate> &selectedCandidates){
     //     lastChar = iter->label;
     // }
 
-    vector<Candidate> filtered;
     filterCandidates(selectedCandidates, filtered, img.cols);
 
     vector<Candidate> top, bot;
@@ -444,7 +478,7 @@ void printProbs(vector<float> &probs){
     cout << "None" << ": " << probs[cint] << endl;
 }
 
-void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate> &candidates){
+void drawResult(Mat &img, string imageName, int numDetections, string fileNamePart, vector<Candidate> &candidates){
     Mat drawImg = img.clone();
     for(Candidate c : candidates){
         int thickness = ceil(img.cols / 1000.0);
@@ -452,13 +486,14 @@ void drawResult(Mat &img, string imageName, int numDetections, vector<Candidate>
         rectangle(drawImg, c.boundBox, color, thickness);
         putText(drawImg, string(1, c.label), c.boundBox.tl(), FONT_HERSHEY_SIMPLEX, thickness, color, thickness);
     }
-    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_result.jpg", drawImg);
+    imwrite(string("debugFiles/read/") + imageName + "_" + to_string(numDetections) + "_" + fileNamePart + ".jpg", drawImg);
 }
 
 string Reader::readNumPlate(Mat &numPlateImg, string imageName, bool doubled){
     int maxCols = 500;
+    float scale = 1;
     if(numPlateImg.cols > maxCols){
-        float scale = (float) maxCols / numPlateImg.cols;
+        scale = (float) maxCols / numPlateImg.cols;
         Size newSize = Size(numPlateImg.cols * scale, numPlateImg.rows * scale);
         resize(numPlateImg, numPlateImg, newSize);
     }
@@ -520,12 +555,18 @@ string Reader::readNumPlate(Mat &numPlateImg, string imageName, bool doubled){
         }
     }
 
-    string numPlateStr = makeNumPlateStr(numPlateImg, selectedCandidates);
+#ifdef DEBUG
+    drawResult(numPlateImg, imageName, numDetections, "result1", selectedCandidates);
+#endif /* DEBUG */
+
+    vector<Candidate> finalFiltered;
+    string numPlateStr = makeNumPlateStr(numPlateImg, selectedCandidates, finalFiltered);
 
 #ifdef DEBUG
-    drawResult(numPlateImg, imageName, numDetections, selectedCandidates);
+    drawResult(numPlateImg, imageName, numDetections, "result2", finalFiltered);
+    writeXML(imageName, scale, finalFiltered);
 #endif /* DEBUG */
-    
+
     numDetections++;
     return numPlateStr;
 }

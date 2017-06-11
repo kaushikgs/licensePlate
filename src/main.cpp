@@ -72,6 +72,7 @@ int main(int argc, char **argv){
 
     Detector detector("detectConfig.txt");
     Reader reader("readConfig.txt");
+    reader.initXML();
     Mat image = imread(imagePath);
 
     chrono::steady_clock::time_point init_t = chrono::steady_clock::now();
@@ -88,6 +89,7 @@ int main(int argc, char **argv){
         numPlateStrs.push_back(numPlateStr);
         detNo++;
     }
+    reader.closeXML();
     chrono::steady_clock::time_point read_t = chrono::steady_clock::now();
 
     for(int boxNo=0; boxNo < numPlateBoxes.size(); boxNo++){

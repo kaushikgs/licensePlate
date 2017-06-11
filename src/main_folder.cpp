@@ -99,6 +99,7 @@ int main(int argc, char **argv){
 
     Detector detector("detectConfig.txt");
     Reader reader("readConfig.txt");
+    reader.initXML();
     vector<string> imageNames = listDirectory(folderPath, false);
     chrono::steady_clock::time_point init_t = chrono::steady_clock::now();
     
@@ -138,6 +139,7 @@ int main(int argc, char **argv){
         readTime += chrono::duration_cast<std::chrono::milliseconds> (read_t - detected_t).count();
         drawTime += chrono::duration_cast<std::chrono::milliseconds> (drawn_t - read_t).count();
     }
+    reader.closeXML();
 
     cout << "Initialization: " << chrono::duration_cast<std::chrono::milliseconds> (init_t - beginInit_t).count() << " ms" << endl;
     cout << "Total Detection: " << detectTime << " ms" << endl;
